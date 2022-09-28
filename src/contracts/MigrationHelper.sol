@@ -15,7 +15,7 @@ contract MigrationHelper is IMigrationHelper {
     cacheATokens();
   }
 
-  // @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
+  //@Iinheritdoc IMigrationHelper
   function cacheATokens() public {
     DataTypes.ReserveData memory reserveData;
     address[] memory reserves = AaveV2Ethereum.POOL.getReservesList();
@@ -27,10 +27,11 @@ contract MigrationHelper is IMigrationHelper {
     }
   }
 
+  //@Iinheritdoc IFlashLoanReceiver
   function executeOperation(
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata premiums,
+    address[] calldata,
+    uint256[] calldata,
+    uint256[] calldata,
     address initiator,
     bytes calldata params
   ) external returns (bool) {
@@ -41,7 +42,7 @@ contract MigrationHelper is IMigrationHelper {
     ) = abi.decode(params, (address[], RepayInput[], PermitInput[]));
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
-      uint256 repaidAmount = AaveV2Ethereum.POOL.repay(
+      AaveV2Ethereum.POOL.repay(
         positionsToRepay[i].asset,
         positionsToRepay[i].amount,
         positionsToRepay[i].rateMode,
@@ -54,6 +55,7 @@ contract MigrationHelper is IMigrationHelper {
     return true;
   }
 
+  //@Iinheritdoc IMigrationHelper
   function migrationNoBorrow(
     address[] calldata assets,
     PermitInput[] calldata permits
@@ -61,10 +63,12 @@ contract MigrationHelper is IMigrationHelper {
     _migrationNoBorrow(msg.sender, assets, permits);
   }
 
+  //@Iinheritdoc IFlashLoanReceiver
   function POOL() external pure returns (IPool) {
     return AaveV3Polygon.POOL;
   }
 
+  //@Iinheritdoc IFlashLoanReceiver
   function ADDRESSES_PROVIDER() external pure returns (IPoolAddressesProvider) {
     return AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
