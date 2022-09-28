@@ -113,11 +113,11 @@ contract MigrationHelper is IMigrationHelper {
       );
 
       aToken.transferFrom(msg.sender, address(this), aToken.balanceOf(user));
-      AaveV2Ethereum.POOL.withdraw(asset, type(uint256).max, address(this));
+      uint256 withdrawn = AaveV2Ethereum.POOL.withdraw(asset, type(uint256).max, address(this));
 
       AaveV3Polygon.POOL.supply(
         asset,
-        IERC20(asset).balanceOf(address(this)),
+        withdrawn,
         user,
         0
       );
