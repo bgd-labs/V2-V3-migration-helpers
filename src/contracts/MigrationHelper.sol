@@ -45,7 +45,7 @@ contract MigrationHelper is IMigrationHelper {
   ) external returns (bool) {
     (
       bool depositLeftovers,
-      address[] memory assets,
+      address[] memory assetsToMigrate,
       PermitInput[] memory permits
     ) = abi.decode(params, (bool, address[], PermitInput[]));
 
@@ -62,6 +62,9 @@ contract MigrationHelper is IMigrationHelper {
         AaveV3Polygon.POOL.deposit(assets[i], leftovers, initiator, 0);
       }
     }
+
+    _migrationNoBorrow(initiator, assetsToMigrate, permits);
+
     return true;
   }
 
