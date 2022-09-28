@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
+
 import {AaveV2Ethereum} from 'aave-address-book/AaveV2Ethereum.sol';
 import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 import {DataTypes} from 'aave-address-book/AaveV2.sol';
+import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 
 import {IERC20} from '../../lib/aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
 import {IAToken} from '../../lib/aave-v3-core/contracts/interfaces/IAToken.sol';
-import {IPoolAddressesProvider, IPool} from '../../lib/aave-v3-core/contracts/flashloan/interfaces/IFlashLoanReceiver.sol';
 import {IMigrationHelper} from "../interfaces/IMigrationHelper.sol";
 
 contract MigrationHelper is IMigrationHelper {
@@ -76,12 +77,12 @@ contract MigrationHelper is IMigrationHelper {
   }
 
   function POOL() external pure returns (IPool) {
-    return IPool(address(AaveV3Polygon.POOL));
+    return AaveV3Polygon.POOL;
   }
 
   function ADDRESSES_PROVIDER() external pure returns (IPoolAddressesProvider) {
     return
-      IPoolAddressesProvider(address(AaveV3Polygon.POOL_ADDRESSES_PROVIDER));
+      AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
 
   function _migrationNoBorrow(
