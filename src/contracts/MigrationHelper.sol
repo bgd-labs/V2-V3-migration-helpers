@@ -6,25 +6,16 @@ import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 import {DataTypes} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 
-import {IERC20WithPermit} from '../interfaces/IERC20WithPermit.sol';
-import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
+import {IMigrationHelper, IERC20WithPermit} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is IMigrationHelper {
-  struct PermitInput {
-    IERC20WithPermit aToken;
-    uint256 value;
-    uint256 deadline;
-    uint8 v;
-    bytes32 r;
-    bytes32 s;
-  }
   mapping(address => IERC20WithPermit) internal _aTokens;
 
   constructor() {
     cacheATokens();
   }
 
-  // @dev public method to optimize the gas costs of all operations
+  // @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
   function cacheATokens() public {
     DataTypes.ReserveData memory reserveData;
     address[] memory reserves = AaveV2Ethereum.POOL.getReservesList();
@@ -44,23 +35,18 @@ contract MigrationHelper is IMigrationHelper {
     bytes calldata params
   ) external returns (bool) {
     (
-      bool depositLeftovers,
       address[] memory assetsToMigrate,
+      RepayInput[] memory positionsToRepay,
       PermitInput[] memory permits
-    ) = abi.decode(params, (bool, address[], PermitInput[]));
+    ) = abi.decode(params, (address[], RepayInput[], PermitInput[]));
 
-    for (uint256 i = 0; i < assets.length; i++) {
+    for (uint256 i = 0; i < positionsToRepay.length; i++) {
       uint256 repaidAmount = AaveV2Ethereum.POOL.repay(
-        assets[i],
-        amounts[i],
-        1,
+        positionsToRepay[i].asset,
+        positionsToRepay[i].amount,
+        positionsToRepay[i].rateMode,
         initiator
       );
-
-      uint256 leftovers = amounts[i] - repaidAmount;
-      if (depositLeftovers && leftovers != 0) {
-        AaveV3Polygon.POOL.deposit(assets[i], leftovers, initiator, 0);
-      }
     }
 
     _migrationNoBorrow(initiator, assetsToMigrate, permits);
@@ -108,7 +94,7 @@ contract MigrationHelper is IMigrationHelper {
       aToken = _aTokens[asset];
       require(
         asset != address(0) && address(aToken) != address(0),
-        'INVALID_ASSET'
+        'INVALID_OR_NOT_CACHED_ASSET'
       );
 
       aToken.transferFrom(msg.sender, address(this), aToken.balanceOf(user));
