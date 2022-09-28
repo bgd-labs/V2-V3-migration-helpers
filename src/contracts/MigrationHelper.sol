@@ -6,20 +6,19 @@ import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 import {DataTypes} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 
-import {IERC20} from '../../lib/aave-v3-core/contracts/dependencies/openzeppelin/contracts/IERC20.sol';
-import {IAToken} from '../../lib/aave-v3-core/contracts/interfaces/IAToken.sol';
-import {IMigrationHelper} from "../interfaces/IMigrationHelper.sol";
+import {IERC20WithPermit} from '../interfaces/IERC20WithPermit.sol';
+import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is IMigrationHelper {
   struct PermitInput {
-    IAToken aToken;
+    IERC20WithPermit aToken;
     uint256 value;
     uint256 deadline;
     uint8 v;
     bytes32 r;
     bytes32 s;
   }
-  mapping(address => IAToken) internal _aTokens;
+  mapping(address => IERC20WithPermit) internal _aTokens;
 
   constructor() {
     cacheATokens();
@@ -32,7 +31,7 @@ contract MigrationHelper is IMigrationHelper {
     for (uint256 i = 0; i < reserves.length; i++) {
       if (address(_aTokens[reserves[i]]) != address(0)) {
         reserveData = AaveV2Ethereum.POOL.getReserveData(reserves[i]);
-        _aTokens[reserves[i]] = IAToken(reserveData.aTokenAddress);
+        _aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
       }
     }
   }
@@ -81,8 +80,7 @@ contract MigrationHelper is IMigrationHelper {
   }
 
   function ADDRESSES_PROVIDER() external pure returns (IPoolAddressesProvider) {
-    return
-      AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
+    return AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
 
   function _migrationNoBorrow(
@@ -91,7 +89,7 @@ contract MigrationHelper is IMigrationHelper {
     PermitInput[] memory permits
   ) internal {
     address asset;
-    IAToken aToken;
+    IERC20WithPermit aToken;
 
     for (uint256 i = 0; i < permits.length; i++) {
       permits[i].aToken.permit(
@@ -114,14 +112,13 @@ contract MigrationHelper is IMigrationHelper {
       );
 
       aToken.transferFrom(msg.sender, address(this), aToken.balanceOf(user));
-      uint256 withdrawn = AaveV2Ethereum.POOL.withdraw(asset, type(uint256).max, address(this));
-
-      AaveV3Polygon.POOL.supply(
+      uint256 withdrawn = AaveV2Ethereum.POOL.withdraw(
         asset,
-        withdrawn,
-        user,
-        0
+        type(uint256).max,
+        address(this)
       );
+
+      AaveV3Polygon.POOL.supply(asset, withdrawn, user, 0);
     }
   }
 }
