@@ -9,7 +9,7 @@ import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 import {IMigrationHelper, IERC20WithPermit} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is IMigrationHelper {
-  mapping(address => IERC20WithPermit) internal _aTokens;
+  mapping(address => IERC20WithPermit) public aTokens;
 
   constructor() {
     cacheATokens();
@@ -20,9 +20,9 @@ contract MigrationHelper is IMigrationHelper {
     DataTypes.ReserveData memory reserveData;
     address[] memory reserves = AaveV2Ethereum.POOL.getReservesList();
     for (uint256 i = 0; i < reserves.length; i++) {
-      if (address(_aTokens[reserves[i]]) != address(0)) {
+      if (address(aTokens[reserves[i]]) != address(0)) {
         reserveData = AaveV2Ethereum.POOL.getReserveData(reserves[i]);
-        _aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
+        aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
       }
     }
   }
@@ -54,17 +54,9 @@ contract MigrationHelper is IMigrationHelper {
       );
     }
 
-    _migrationNoBorrow(initiator, assetsToMigrate, permits);
+    migrationNoBorrow(initiator, assetsToMigrate, permits);
 
     return true;
-  }
-
-  //@Iinheritdoc IMigrationHelper
-  function migrationNoBorrow(
-    address[] calldata assets,
-    PermitInput[] calldata permits
-  ) external {
-    _migrationNoBorrow(msg.sender, assets, permits);
   }
 
   //@Iinheritdoc IFlashLoanReceiver
@@ -77,16 +69,12 @@ contract MigrationHelper is IMigrationHelper {
     return AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
 
-  // @dev Method to do migration of positions which are not requiring repayment. Migrating whole amount of specified assets
-  // @param user - user to migrate positions
-  // @param assets - list of assets to migrate
-  // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
-  // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
-  function _migrationNoBorrow(
+  //@Iinheritdoc IMigrationHelper
+  function migrationNoBorrow(
     address user,
     address[] memory assets,
     PermitInput[] memory permits
-  ) internal {
+  ) public {
     address asset;
     IERC20WithPermit aToken;
 
@@ -104,7 +92,7 @@ contract MigrationHelper is IMigrationHelper {
 
     for (uint256 i = 0; i < assets.length; i++) {
       asset = assets[i];
-      aToken = _aTokens[asset];
+      aToken = aTokens[asset];
       require(
         asset != address(0) && address(aToken) != address(0),
         'INVALID_OR_NOT_CACHED_ASSET'

@@ -1,5 +1,4 @@
 [profile.default]
-viaIR = true
 src = 'src'
 test = 'tests'
 script = 'scripts'

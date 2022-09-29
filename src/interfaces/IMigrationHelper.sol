@@ -21,10 +21,12 @@ interface IMigrationHelper is IFlashLoanReceiver {
   }
 
   // @dev Method to do migration of positions which are not requiring repayment. Migrating whole amount of specified assets
+  // @param user - user to migrate positions
   // @param assets - list of assets to migrate
   // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
   // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
   function migrationNoBorrow(
+    address user,
     address[] calldata assets,
     PermitInput[] calldata permits
   ) external;
