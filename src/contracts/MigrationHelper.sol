@@ -28,6 +28,10 @@ contract MigrationHelper is IMigrationHelper {
   }
 
   //@Iinheritdoc IFlashLoanReceiver
+  // expected structure of the params:
+  // assetsToMigrate - the list of supplied assets to migrate
+  // positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
+  // permits - the list of a EIP712 like permits, if allowance was not granted in advance
   function executeOperation(
     address[] calldata,
     uint256[] calldata,
@@ -73,6 +77,11 @@ contract MigrationHelper is IMigrationHelper {
     return AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
 
+  // @dev Method to do migration of positions which are not requiring repayment. Migrating whole amount of specified assets
+  // @param user - user to migrate positions
+  // @param assets - list of assets to migrate
+  // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
+  // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
   function _migrationNoBorrow(
     address user,
     address[] memory assets,
