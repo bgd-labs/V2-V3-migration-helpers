@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
+
 import {IFlashLoanReceiver} from './IFlashLoanReceiver.sol';
 import {IERC20WithPermit} from '../interfaces/IERC20WithPermit.sol';
 
@@ -33,4 +35,6 @@ interface IMigrationHelper is IFlashLoanReceiver {
 
   // @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
   function cacheATokens() external;
+
+  function V2_POOL() external returns (IV2LendingPool);
 }

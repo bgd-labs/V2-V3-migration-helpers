@@ -1,28 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {AaveV2Ethereum} from 'aave-address-book/AaveV2Ethereum.sol';
-import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
-import {DataTypes} from 'aave-address-book/AaveV2.sol';
+import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 
 import {IMigrationHelper, IERC20WithPermit} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is IMigrationHelper {
+  //@dev the source pool
+  IV2LendingPool public immutable V2_POOL;
+
+  //@dev the destination pool
+  IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
+  IPool public immutable POOL;
+
   mapping(address => IERC20WithPermit) public aTokens;
 
-  constructor() {
+  constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
+  {
+    ADDRESSES_PROVIDER = v3AddressesProvider;
+    POOL = IPool(v3AddressesProvider.getPool());
+    V2_POOL = v2Pool;
     cacheATokens();
   }
 
   //@Iinheritdoc IMigrationHelper
   function cacheATokens() public {
     DataTypes.ReserveData memory reserveData;
-    address[] memory reserves = AaveV2Ethereum.POOL.getReservesList();
+    address[] memory reserves = V2_POOL.getReservesList();
     for (uint256 i = 0; i < reserves.length; i++) {
-      if (address(aTokens[reserves[i]]) != address(0)) {
-        reserveData = AaveV2Ethereum.POOL.getReserveData(reserves[i]);
+      if (address(aTokens[reserves[i]]) == address(0)) {
+        reserveData = V2_POOL.getReserveData(reserves[i]);
         aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
+        IERC20WithPermit(reserves[i]).approve(address(POOL), type(uint256).max);
       }
     }
   }
@@ -46,7 +56,7 @@ contract MigrationHelper is IMigrationHelper {
     ) = abi.decode(params, (address[], RepayInput[], PermitInput[]));
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
-      AaveV2Ethereum.POOL.repay(
+      V2_POOL.repay(
         positionsToRepay[i].asset,
         positionsToRepay[i].amount,
         positionsToRepay[i].rateMode,
@@ -57,16 +67,6 @@ contract MigrationHelper is IMigrationHelper {
     migrationNoBorrow(initiator, assetsToMigrate, permits);
 
     return true;
-  }
-
-  //@Iinheritdoc IFlashLoanReceiver
-  function POOL() external pure returns (IPool) {
-    return AaveV3Polygon.POOL;
-  }
-
-  //@Iinheritdoc IFlashLoanReceiver
-  function ADDRESSES_PROVIDER() external pure returns (IPoolAddressesProvider) {
-    return AaveV3Polygon.POOL_ADDRESSES_PROVIDER;
   }
 
   //@Iinheritdoc IMigrationHelper
@@ -98,14 +98,14 @@ contract MigrationHelper is IMigrationHelper {
         'INVALID_OR_NOT_CACHED_ASSET'
       );
 
-      aToken.transferFrom(msg.sender, address(this), aToken.balanceOf(user));
-      uint256 withdrawn = AaveV2Ethereum.POOL.withdraw(
+      aToken.transferFrom(user, address(this), aToken.balanceOf(user));
+      uint256 withdrawn = V2_POOL.withdraw(
         asset,
         type(uint256).max,
         address(this)
       );
 
-      AaveV3Polygon.POOL.supply(asset, withdrawn, user, 0);
+      POOL.supply(asset, withdrawn, user, 0);
     }
   }
 }
