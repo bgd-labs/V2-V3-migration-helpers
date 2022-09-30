@@ -32,6 +32,10 @@ contract MigrationHelper is IMigrationHelper {
       if (address(aTokens[reserves[i]]) == address(0)) {
         reserveData = V2_POOL.getReserveData(reserves[i]);
         aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
+        IERC20WithPermit(reserves[i]).approve(
+          address(V2_POOL),
+          type(uint256).max
+        );
         IERC20WithPermit(reserves[i]).approve(address(POOL), type(uint256).max);
       }
     }

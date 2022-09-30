@@ -32,6 +32,7 @@ contract MigrationHelperTest is Test {
     usersSimple[1] = 0x5d3f81Ad171616571BF3119a3120E392B914Fd7C;
     usersSimple[2] = 0x07F294e84a9574f657A473f94A242F1FdFAFB823;
     usersSimple[3] = 0x7734280A4337F37Fbf4651073Db7c28C80B339e9;
+    // TODO: add more users
   }
 
   function testCacheATokens() public {
@@ -43,6 +44,7 @@ contract MigrationHelperTest is Test {
         address(migrationHelper.aTokens(v2Reserves[i])),
         reserveData.aTokenAddress
       );
+      // TODO: check that approvals for poolV2 and poolV3 exists
     }
   }
 
