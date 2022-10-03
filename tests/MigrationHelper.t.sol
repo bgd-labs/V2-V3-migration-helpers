@@ -2,10 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {Test} from 'forge-std/Test.sol';
+import {console} from 'forge-std/console.sol';
 
 import {AaveV2Polygon} from 'aave-address-book/AaveV2Polygon.sol';
 import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 
+import {IERC20} from 'solidity-utils/contracts/oz-common/interfaces/IERC20.sol';
 import {DataTypes, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol';
 
 import {MigrationHelper, IMigrationHelper, IERC20WithPermit} from '../src/contracts/MigrationHelper.sol';
@@ -18,6 +20,7 @@ contract MigrationHelperTest is Test {
   address[] public v2Reserves;
 
   function setUp() public {
+    // TODO: set fixed block number
     vm.createSelectFork(vm.rpcUrl('polygon'));
     migrationHelper = new MigrationHelper(
       AaveV3Polygon.POOL_ADDRESSES_PROVIDER,
@@ -44,7 +47,18 @@ contract MigrationHelperTest is Test {
         address(migrationHelper.aTokens(v2Reserves[i])),
         reserveData.aTokenAddress
       );
-      // TODO: check that approvals for poolV2 and poolV3 exists
+
+      uint256 allowanceToPoolV2 = IERC20(v2Reserves[i]).allowance(
+        address(migrationHelper),
+        address(migrationHelper.V2_POOL())
+      );
+      assertEq(allowanceToPoolV2, type(uint256).max);
+
+      uint256 allowanceToPool = IERC20(v2Reserves[i]).allowance(
+        address(migrationHelper),
+        address(migrationHelper.POOL())
+      );
+      assertEq(allowanceToPool, type(uint256).max);
     }
   }
 
