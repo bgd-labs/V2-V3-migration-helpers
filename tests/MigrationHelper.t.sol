@@ -8,25 +8,27 @@ import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 
 import {IERC20} from 'solidity-utils/contracts/oz-common/interfaces/IERC20.sol';
 import {DataTypes, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol';
+import {IAaveProtocolDataProvider as IAaveProtocolDataProviderV3} from 'aave-address-book/AaveV3.sol';
 
 import {MigrationHelper, IMigrationHelper, IERC20WithPermit} from '../src/contracts/MigrationHelper.sol';
 
 contract MigrationHelperTest is Test {
   IAaveProtocolDataProvider public v2DataProvider;
+  IAaveProtocolDataProviderV3 public v3DataProvider;
   MigrationHelper public migrationHelper;
 
   address[] public usersSimple;
   address[] public v2Reserves;
 
   function setUp() public {
-    // TODO: set fixed block number
-    vm.createSelectFork(vm.rpcUrl('polygon'));
+    vm.createSelectFork(vm.rpcUrl('polygon'), 33920075);
     migrationHelper = new MigrationHelper(
       AaveV3Polygon.POOL_ADDRESSES_PROVIDER,
       AaveV2Polygon.POOL
     );
 
     v2DataProvider = AaveV2Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
+    v3DataProvider = AaveV3Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
     v2Reserves = migrationHelper.V2_POOL().getReservesList();
 
     usersSimple = new address[](17);
@@ -75,13 +77,17 @@ contract MigrationHelperTest is Test {
 
   function testMigrationNoBorrowNoPermit() public {
     address[] memory suppliedPositions;
+    uint256[] memory suppliedBalances;
     IMigrationHelper.RepayInput[] memory borrowedPositions;
 
     for (uint256 i = 0; i < usersSimple.length; i++) {
       // get positions
-      (suppliedPositions, borrowedPositions) = _getV2UserPosition(
-        usersSimple[i]
-      );
+      (
+        suppliedPositions,
+        suppliedBalances,
+        borrowedPositions
+      ) = _getV2UserPosition(usersSimple[i]);
+
       require(
         borrowedPositions.length == 0 && suppliedPositions.length != 0,
         'BAD_USER_FOR_THIS_TEST'
@@ -103,17 +109,52 @@ contract MigrationHelperTest is Test {
         suppliedPositions,
         new IMigrationHelper.PermitInput[](0)
       );
+
+      _checkMigratedPositions(
+        usersSimple[i],
+        suppliedPositions,
+        suppliedBalances
+      );
+    }
+  }
+
+  function _checkMigratedPositions(
+    address user,
+    address[] memory supliedPositions,
+    uint256[] memory suppliedBalances
+  ) internal {
+    for (uint256 i = 0; i < supliedPositions.length; i++) {
+      (
+        uint256 currentATokenBalance,
+        uint256 currentStableDebt,
+        uint256 currentVariableDebt,
+        ,
+        ,
+        ,
+        ,
+        ,
+
+      ) = v3DataProvider.getUserReserveData(supliedPositions[i], user);
+
+      assertTrue(currentATokenBalance >= suppliedBalances[i]);
+
+      // TODO: compare borrowings
     }
   }
 
   function _getV2UserPosition(address user)
     internal
     view
-    returns (address[] memory, IMigrationHelper.RepayInput[] memory)
+    returns (
+      address[] memory,
+      uint256[] memory,
+      IMigrationHelper.RepayInput[] memory
+    )
   {
     uint256 numberOfSupplied;
     uint256 numberOfBorrowed;
     address[] memory suppliedPositions = new address[](v2Reserves.length);
+    uint256[] memory suppliedBalances = new uint256[](v2Reserves.length);
     IMigrationHelper.RepayInput[]
       memory borrowedPositions = new IMigrationHelper.RepayInput[](
         v2Reserves.length * 2
@@ -132,6 +173,7 @@ contract MigrationHelperTest is Test {
       ) = v2DataProvider.getUserReserveData(v2Reserves[i], user);
       if (currentATokenBalance != 0) {
         suppliedPositions[numberOfSupplied] = v2Reserves[i];
+        suppliedBalances[numberOfSupplied] = currentATokenBalance;
         numberOfSupplied++;
       }
       if (currentStableDebt != 0) {
@@ -151,11 +193,13 @@ contract MigrationHelperTest is Test {
         numberOfBorrowed++;
       }
     }
+
     assembly {
       mstore(suppliedPositions, numberOfSupplied)
+      mstore(suppliedBalances, numberOfSupplied)
       mstore(borrowedPositions, numberOfBorrowed)
     }
 
-    return (suppliedPositions, borrowedPositions);
+    return (suppliedPositions, suppliedBalances, borrowedPositions);
   }
 }
