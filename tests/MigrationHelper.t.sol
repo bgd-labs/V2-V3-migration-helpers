@@ -18,7 +18,10 @@ contract MigrationHelperTest is Test {
   MigrationHelper public migrationHelper;
 
   address[] public usersSimple;
+  address[] public usersWithDebt;
   address[] public v2Reserves;
+
+  mapping(address => uint256) private assetsIndex;
 
   function setUp() public {
     vm.createSelectFork(vm.rpcUrl('polygon'), 33920075);
@@ -49,6 +52,15 @@ contract MigrationHelperTest is Test {
     usersSimple[14] = 0x1776Fd7CCf75C889d62Cd03B5116342EB13268Bc;
     usersSimple[15] = 0x53498839353845a30745b56a22524Df934F746dE;
     usersSimple[16] = 0x3126ffE1334d892e0c53d8e2Fc83a605DcDCf037;
+
+    usersWithDebt = new address[](7);
+    usersWithDebt[0] = 0x0044DB9F44991AB259c1800c723d3980150F58BB;
+    usersWithDebt[1] = 0x07c9fac7a77f98c9cf28D84733e28912C44Cb467;
+    usersWithDebt[2] = 0x02ccbf14d05Af1bBA1C85C0E4EBe34450B4BC3A1;
+    usersWithDebt[3] = 0x022cF8fCF32A0Af972cb723D82E0120b43c79af0;
+    usersWithDebt[4] = 0xe8A4160978d875AD2B9E8A5829693baC89F6f985;
+    usersWithDebt[5] = 0x4303Ddc9943D862f2B205aF468a4A786c5137E76;
+    usersWithDebt[6] = 0x01746f0a55811602F0EEA0DeF665C7086fc5eB3D;
   }
 
   function testCacheATokens() public {
@@ -110,7 +122,7 @@ contract MigrationHelperTest is Test {
         new IMigrationHelper.PermitInput[](0)
       );
 
-      _checkMigratedPositions(
+      _checkMigratedSupplies(
         usersSimple[i],
         suppliedPositions,
         suppliedBalances
@@ -118,27 +130,88 @@ contract MigrationHelperTest is Test {
     }
   }
 
-  function _checkMigratedPositions(
+  function testMigrationBorrowNoPermit() public {
+    address[] memory suppliedPositions;
+    uint256[] memory suppliedBalances;
+    IMigrationHelper.RepayInput[] memory borrowedPositions;
+    address[] memory borrowedAssets;
+    uint256[] memory borrowedAmounts;
+    uint256[] memory interestRateModes;
+    IMigrationHelper.PermitInput[] memory permits;
+
+    for (uint256 i = 0; i < usersWithDebt.length; i++) {
+      //     // get positions
+      (
+        suppliedPositions,
+        suppliedBalances,
+        borrowedPositions
+      ) = _getV2UserPosition(usersWithDebt[i]);
+
+      require(
+        borrowedPositions.length != 0 && suppliedPositions.length != 0,
+        'BAD_USER_FOR_THIS_TEST'
+      );
+
+      (
+        borrowedAssets,
+        borrowedAmounts,
+        interestRateModes
+      ) = _getFlashloanParams(borrowedPositions);
+
+      vm.startPrank(usersWithDebt[i]);
+
+      // approve aTokens to helper
+      for (uint256 j = 0; j < suppliedPositions.length; j++) {
+        migrationHelper.aTokens(suppliedPositions[j]).approve(
+          address(migrationHelper),
+          type(uint256).max
+        );
+      }
+
+      migrationHelper.POOL().flashLoan(
+        address(migrationHelper),
+        borrowedAssets,
+        borrowedAmounts,
+        interestRateModes,
+        usersWithDebt[i],
+        abi.encode(suppliedPositions, borrowedPositions, permits),
+        0
+      );
+
+      vm.stopPrank();
+
+      _checkMigratedSupplies(
+        usersWithDebt[i],
+        suppliedPositions,
+        suppliedBalances
+      );
+
+      _checkMigratedBorrowings(usersWithDebt[i], borrowedPositions);
+    }
+  }
+
+  function _checkMigratedSupplies(
     address user,
     address[] memory supliedPositions,
     uint256[] memory suppliedBalances
   ) internal {
     for (uint256 i = 0; i < supliedPositions.length; i++) {
-      (
-        uint256 currentATokenBalance,
-        uint256 currentStableDebt,
-        uint256 currentVariableDebt,
-        ,
-        ,
-        ,
-        ,
-        ,
-
-      ) = v3DataProvider.getUserReserveData(supliedPositions[i], user);
+      (uint256 currentATokenBalance, , , , , , , , ) = v3DataProvider
+        .getUserReserveData(supliedPositions[i], user);
 
       assertTrue(currentATokenBalance >= suppliedBalances[i]);
+    }
+  }
 
-      // TODO: compare borrowings
+  function _checkMigratedBorrowings(
+    address user,
+    IMigrationHelper.RepayInput[] memory borrowedPositions
+  ) internal {
+    for (uint256 i = 0; i < borrowedPositions.length; i++) {
+      (, , uint256 currentVariableDebt, , , , , , ) = v3DataProvider
+        .getUserReserveData(borrowedPositions[i].asset, user);
+
+      assertTrue(currentVariableDebt >= borrowedPositions[i].amount);
     }
   }
 
@@ -201,5 +274,53 @@ contract MigrationHelperTest is Test {
     }
 
     return (suppliedPositions, suppliedBalances, borrowedPositions);
+  }
+
+  function _getFlashloanParams(
+    IMigrationHelper.RepayInput[] memory borrowedPositions
+  )
+    internal
+    returns (
+      address[] memory,
+      uint256[] memory,
+      uint256[] memory
+    )
+  {
+    address[] memory borrowedAssets = new address[](borrowedPositions.length);
+    uint256[] memory borrowedAmounts = new uint256[](borrowedPositions.length);
+    uint256[] memory interestRateModes = new uint256[](
+      borrowedPositions.length
+    );
+    uint256 index = 0;
+
+    for (uint256 i = 0; i < borrowedPositions.length; i++) {
+      address asset = borrowedPositions[i].asset;
+      uint256 amount = borrowedPositions[i].amount;
+
+      uint256 existingIndex = assetsIndex[asset];
+
+      if (existingIndex > 0) {
+        borrowedAmounts[existingIndex - 1] += amount;
+      } else {
+        assetsIndex[asset] = index + 1;
+        borrowedAssets[index] = asset;
+        borrowedAmounts[index] = amount;
+        interestRateModes[index] = 2;
+        index++;
+      }
+    }
+
+    // clean mapping
+    for (uint256 i = 0; i < borrowedAssets.length; i++) {
+      delete assetsIndex[borrowedAssets[i]];
+    }
+
+    assembly {
+      mstore(borrowedAssets, index)
+      mstore(borrowedAmounts, index)
+      mstore(interestRateModes, index)
+    }
+
+    return (borrowedAssets, borrowedAmounts, interestRateModes);
   }
 }
