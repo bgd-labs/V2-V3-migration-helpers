@@ -17,6 +17,9 @@ contract MigrationHelperTest is Test {
   IAaveProtocolDataProviderV3 public v3DataProvider;
   MigrationHelper public migrationHelper;
 
+  address constant DAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+  address constant ETH = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+
   address[] public usersSimple;
   address[] public usersWithDebt;
   address[] public v2Reserves;
@@ -130,6 +133,25 @@ contract MigrationHelperTest is Test {
     }
   }
 
+  function testMigrationBorrowWithPermit() public {
+    // _getUserWithPosition();
+    // calculate permit
+  }
+
+  function _getUserWithPosition() internal {
+    uint256 ownerPrivateKey = 0xA11CE;
+
+    address owner = vm.addr(ownerPrivateKey);
+    // vm.deal(DAI, owner, 10000e18);
+
+    vm.startPrank(owner);
+
+    migrationHelper.V2_POOL().deposit(DAI, 10000e18, owner, 0);
+    migrationHelper.V2_POOL().borrow(ETH, 1e18, 2, 0, owner);
+
+    vm.stopPrank();
+  }
+
   function testMigrationBorrowNoPermit() public {
     address[] memory suppliedPositions;
     uint256[] memory suppliedBalances;
@@ -137,7 +159,6 @@ contract MigrationHelperTest is Test {
     address[] memory borrowedAssets;
     uint256[] memory borrowedAmounts;
     uint256[] memory interestRateModes;
-    IMigrationHelper.PermitInput[] memory permits;
 
     for (uint256 i = 0; i < usersWithDebt.length; i++) {
       //     // get positions
@@ -174,7 +195,11 @@ contract MigrationHelperTest is Test {
         borrowedAmounts,
         interestRateModes,
         usersWithDebt[i],
-        abi.encode(suppliedPositions, borrowedPositions, permits),
+        abi.encode(
+          suppliedPositions,
+          borrowedPositions,
+          new IMigrationHelper.PermitInput[](0)
+        ),
         0
       );
 
