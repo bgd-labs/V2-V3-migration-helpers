@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
+import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
 import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 
-import {IMigrationHelper, IERC20WithPermit} from '../interfaces/IMigrationHelper.sol';
+import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is IMigrationHelper {
   //@dev the source pool

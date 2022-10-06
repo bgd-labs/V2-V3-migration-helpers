@@ -14,6 +14,8 @@ import {DataTypes, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol
 import {IAaveProtocolDataProvider as IAaveProtocolDataProviderV3} from 'aave-address-book/AaveV3.sol';
 
 import {MigrationHelper, IMigrationHelper, IERC20WithPermit} from '../src/contracts/MigrationHelper.sol';
+
+import {IERC20WithATokenCompatibility} from './helpers/IERC20WithATokenCompatibility.sol';
 import {SigUtils} from './helpers/SigUtils.sol';
 
 contract MigrationHelperTest is Test {
@@ -407,7 +409,7 @@ contract MigrationHelperTest is Test {
         owner: user,
         spender: address(migrationHelper),
         value: suppliedBalances[i],
-        nonce: token._nonces(user),
+        nonce: IERC20WithATokenCompatibility(address(token))._nonces(user),
         deadline: type(uint256).max
       });
 
