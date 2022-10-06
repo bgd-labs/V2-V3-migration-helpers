@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
 import {ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 
 import {IFlashLoanReceiver} from './IFlashLoanReceiver.sol';
-import {IERC20WithPermit} from '../interfaces/IERC20WithPermit.sol';
 
 interface IMigrationHelper is IFlashLoanReceiver {
   struct PermitInput {
