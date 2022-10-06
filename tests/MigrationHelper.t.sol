@@ -2,23 +2,28 @@
 pragma solidity ^0.8.0;
 
 import {Test} from 'forge-std/Test.sol';
+import {console} from 'forge-std/console.sol';
 
 import {AaveV2Polygon} from 'aave-address-book/AaveV2Polygon.sol';
 import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 
 import {IERC20} from 'solidity-utils/contracts/oz-common/interfaces/IERC20.sol';
+import {IERC20WithATokenCompatibility} from './helpers/IERC20WithATokenCompatibility.sol';
+
 import {DataTypes, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol';
 import {IAaveProtocolDataProvider as IAaveProtocolDataProviderV3} from 'aave-address-book/AaveV3.sol';
 
 import {MigrationHelper, IMigrationHelper, IERC20WithPermit} from '../src/contracts/MigrationHelper.sol';
+import {SigUtils} from './helpers/SigUtils.sol';
 
 contract MigrationHelperTest is Test {
   IAaveProtocolDataProvider public v2DataProvider;
   IAaveProtocolDataProviderV3 public v3DataProvider;
   MigrationHelper public migrationHelper;
+  SigUtils public sigUtils;
 
-  address constant DAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
-  address constant ETH = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+  address public constant DAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+  address public constant ETH = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
 
   address[] public usersSimple;
   address[] public usersWithDebt;
@@ -36,6 +41,8 @@ contract MigrationHelperTest is Test {
     v2DataProvider = AaveV2Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
     v3DataProvider = AaveV3Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
     v2Reserves = migrationHelper.V2_POOL().getReservesList();
+
+    sigUtils = new SigUtils();
 
     usersSimple = new address[](17);
     usersSimple[0] = 0x5FFAcBDaA5754224105879c03392ef9FE6ae0c17;
@@ -109,7 +116,6 @@ contract MigrationHelperTest is Test {
       );
 
       vm.startPrank(usersSimple[i]);
-      // TODO: add test with permit
       // approve aTokens to helper
       for (uint256 j = 0; j < suppliedPositions.length; j++) {
         migrationHelper.aTokens(suppliedPositions[j]).approve(
@@ -119,12 +125,14 @@ contract MigrationHelperTest is Test {
       }
       vm.stopPrank();
 
+      // migrate positions to V3
       migrationHelper.migrationNoBorrow(
         usersSimple[i],
         suppliedPositions,
         new IMigrationHelper.PermitInput[](0)
       );
 
+      // check that positions were migrated successfully
       _checkMigratedSupplies(
         usersSimple[i],
         suppliedPositions,
@@ -134,22 +142,32 @@ contract MigrationHelperTest is Test {
   }
 
   function testMigrationBorrowWithPermit() public {
-    // _getUserWithPosition();
+    address[] memory suppliedPositions;
+    uint256[] memory suppliedBalances;
+    IMigrationHelper.RepayInput[] memory borrowedPositions;
+
+    (address user, uint256 privateKey) = _getUserWithPosition();
+
+    // get positions
+    (
+      suppliedPositions,
+      suppliedBalances,
+      borrowedPositions
+    ) = _getV2UserPosition(user);
+
     // calculate permit
-  }
+    IMigrationHelper.PermitInput[] memory permits = _getPermits(
+      user,
+      privateKey,
+      suppliedPositions,
+      suppliedBalances
+    );
 
-  function _getUserWithPosition() internal {
-    uint256 ownerPrivateKey = 0xA11CE;
+    // migrate positions to V3
+    migrationHelper.migrationNoBorrow(user, suppliedPositions, permits);
 
-    address owner = vm.addr(ownerPrivateKey);
-    // vm.deal(DAI, owner, 10000e18);
-
-    vm.startPrank(owner);
-
-    migrationHelper.V2_POOL().deposit(DAI, 10000e18, owner, 0);
-    migrationHelper.V2_POOL().borrow(ETH, 1e18, 2, 0, owner);
-
-    vm.stopPrank();
+    // check that positions were migrated successfully
+    _checkMigratedSupplies(user, suppliedPositions, suppliedBalances);
   }
 
   function testMigrationBorrowNoPermit() public {
@@ -161,7 +179,7 @@ contract MigrationHelperTest is Test {
     uint256[] memory interestRateModes;
 
     for (uint256 i = 0; i < usersWithDebt.length; i++) {
-      //     // get positions
+      // get positions
       (
         suppliedPositions,
         suppliedBalances,
@@ -189,6 +207,7 @@ contract MigrationHelperTest is Test {
         );
       }
 
+      // get flashloan to migrate positions to v3
       migrationHelper.POOL().flashLoan(
         address(migrationHelper),
         borrowedAssets,
@@ -205,6 +224,7 @@ contract MigrationHelperTest is Test {
 
       vm.stopPrank();
 
+      // check that positions were migrated successfully
       _checkMigratedSupplies(
         usersWithDebt[i],
         suppliedPositions,
@@ -347,5 +367,67 @@ contract MigrationHelperTest is Test {
     }
 
     return (borrowedAssets, borrowedAmounts, interestRateModes);
+  }
+
+  function _getUserWithPosition() internal returns (address, uint256) {
+    uint256 ownerPrivateKey = 0xA11CEA;
+
+    address owner = vm.addr(ownerPrivateKey);
+    deal(DAI, owner, 10000e18);
+    deal(ETH, owner, 10e18);
+
+    vm.startPrank(owner);
+
+    IERC20(DAI).approve(address(migrationHelper.V2_POOL()), type(uint256).max);
+    IERC20(ETH).approve(address(migrationHelper.V2_POOL()), type(uint256).max);
+
+    migrationHelper.V2_POOL().deposit(DAI, 10000 ether, owner, 0);
+    migrationHelper.V2_POOL().deposit(ETH, 10 ether, owner, 0);
+
+    vm.stopPrank();
+
+    return (owner, ownerPrivateKey);
+  }
+
+  function _getPermits(
+    address user,
+    uint256 privateKey,
+    address[] memory suppliedPositions,
+    uint256[] memory suppliedBalances
+  ) internal returns (IMigrationHelper.PermitInput[] memory) {
+    IMigrationHelper.PermitInput[]
+      memory permits = new IMigrationHelper.PermitInput[](
+        suppliedPositions.length
+      );
+
+    for (uint256 i = 0; i < suppliedPositions.length; i++) {
+      IERC20WithPermit token = migrationHelper.aTokens(suppliedPositions[i]);
+
+      SigUtils.Permit memory permit = SigUtils.Permit({
+        owner: user,
+        spender: address(migrationHelper),
+        value: suppliedBalances[i],
+        nonce: token._nonces(user),
+        deadline: type(uint256).max
+      });
+
+      bytes32 digest = sigUtils.getTypedDataHash(
+        permit,
+        token.DOMAIN_SEPARATOR()
+      );
+
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+      permits[i] = IMigrationHelper.PermitInput({
+        aToken: token,
+        value: suppliedBalances[i],
+        deadline: type(uint256).max,
+        v: v,
+        r: r,
+        s: s
+      });
+    }
+
+    return permits;
   }
 }
