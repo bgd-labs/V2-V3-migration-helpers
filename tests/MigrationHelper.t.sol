@@ -313,6 +313,7 @@ contract MigrationHelperTest is Test {
       }
     }
 
+    // shrink unused elements of the arrays
     assembly {
       mstore(suppliedPositions, numberOfSupplied)
       mstore(suppliedBalances, numberOfSupplied)
