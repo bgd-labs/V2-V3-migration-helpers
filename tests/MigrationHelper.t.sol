@@ -46,6 +46,7 @@ contract MigrationHelperTest is Test {
 
     sigUtils = new SigUtils();
 
+    // @dev users who has only supplied positions, no borrowings
     usersSimple = new address[](17);
     usersSimple[0] = 0x5FFAcBDaA5754224105879c03392ef9FE6ae0c17;
     usersSimple[1] = 0x5d3f81Ad171616571BF3119a3120E392B914Fd7C;
@@ -65,6 +66,7 @@ contract MigrationHelperTest is Test {
     usersSimple[15] = 0x53498839353845a30745b56a22524Df934F746dE;
     usersSimple[16] = 0x3126ffE1334d892e0c53d8e2Fc83a605DcDCf037;
 
+    // @dev users who has borrowings
     usersWithDebt = new address[](7);
     usersWithDebt[0] = 0x0044DB9F44991AB259c1800c723d3980150F58BB;
     usersWithDebt[1] = 0x07c9fac7a77f98c9cf28D84733e28912C44Cb467;
@@ -188,10 +190,7 @@ contract MigrationHelperTest is Test {
         borrowedPositions
       ) = _getV2UserPosition(usersWithDebt[i]);
 
-      require(
-        borrowedPositions.length != 0 && suppliedPositions.length != 0,
-        'BAD_USER_FOR_THIS_TEST'
-      );
+      require(borrowedPositions.length != 0, 'BAD_USER_FOR_THIS_TEST');
 
       (
         borrowedAssets,
@@ -239,12 +238,12 @@ contract MigrationHelperTest is Test {
 
   function _checkMigratedSupplies(
     address user,
-    address[] memory supliedPositions,
+    address[] memory suppliedPositions,
     uint256[] memory suppliedBalances
   ) internal {
-    for (uint256 i = 0; i < supliedPositions.length; i++) {
+    for (uint256 i = 0; i < suppliedPositions.length; i++) {
       (uint256 currentATokenBalance, , , , , , , , ) = v3DataProvider
-        .getUserReserveData(supliedPositions[i], user);
+        .getUserReserveData(suppliedPositions[i], user);
 
       assertTrue(currentATokenBalance >= suppliedBalances[i]);
     }
@@ -362,6 +361,7 @@ contract MigrationHelperTest is Test {
       delete assetsIndex[borrowedAssets[i]];
     }
 
+    // shrink unused elements of the arrays
     assembly {
       mstore(borrowedAssets, index)
       mstore(borrowedAmounts, index)
