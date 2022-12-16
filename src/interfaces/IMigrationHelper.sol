@@ -5,6 +5,7 @@ import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IE
 import {ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 
 import {IFlashLoanReceiver} from './IFlashLoanReceiver.sol';
+import {ICreditDelegationToken} from './ICreditDelegationToken.sol';
 
 interface IMigrationHelper is IFlashLoanReceiver {
   struct PermitInput {
@@ -15,10 +16,23 @@ interface IMigrationHelper is IFlashLoanReceiver {
     bytes32 r;
     bytes32 s;
   }
+  struct CreditDelegationInput {
+    ICreditDelegationToken debtToken;
+    uint256 value;
+    uint256 deadline;
+    uint8 v;
+    bytes32 r;
+    bytes32 s;
+  }
 
   struct RepayInput {
     address asset;
     uint256 amount;
+    uint256 rateMode;
+  }
+
+  struct RepaySimpleInput {
+    address asset;
     uint256 rateMode;
   }
 

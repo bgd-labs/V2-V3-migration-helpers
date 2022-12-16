@@ -15,11 +15,9 @@ contract SigUtils {
   }
 
   // computes the hash of a permit
-  function getStructHash(Permit memory _permit)
-    internal
-    pure
-    returns (bytes32)
-  {
+  function getStructHash(
+    Permit memory _permit
+  ) internal pure returns (bytes32) {
     return
       keccak256(
         abi.encode(
@@ -34,11 +32,10 @@ contract SigUtils {
   }
 
   // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-  function getTypedDataHash(Permit memory _permit, bytes32 domainSeparator)
-    public
-    pure
-    returns (bytes32)
-  {
+  function getTypedDataHash(
+    Permit memory _permit,
+    bytes32 domainSeparator
+  ) public pure returns (bytes32) {
     return
       keccak256(
         abi.encodePacked('\x19\x01', domainSeparator, getStructHash(_permit))

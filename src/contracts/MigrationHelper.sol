@@ -16,9 +16,13 @@ contract MigrationHelper is IMigrationHelper {
   IPool public immutable POOL;
 
   mapping(address => IERC20WithPermit) public aTokens;
+  mapping(address => IERC20WithPermit) public vTokens;
+  mapping(address => IERC20WithPermit) public sTokens;
 
-  constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
-  {
+  constructor(
+    IPoolAddressesProvider v3AddressesProvider,
+    IV2LendingPool v2Pool
+  ) {
     ADDRESSES_PROVIDER = v3AddressesProvider;
     POOL = IPool(v3AddressesProvider.getPool());
     V2_POOL = v2Pool;
@@ -33,6 +37,12 @@ contract MigrationHelper is IMigrationHelper {
       if (address(aTokens[reserves[i]]) == address(0)) {
         reserveData = V2_POOL.getReserveData(reserves[i]);
         aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
+        vTokens[reserves[i]] = IERC20WithPermit(
+          reserveData.variableDebtTokenAddress
+        );
+        sTokens[reserves[i]] = IERC20WithPermit(
+          reserveData.stableDebtTokenAddress
+        );
         IERC20WithPermit(reserves[i]).approve(
           address(V2_POOL),
           type(uint256).max
@@ -57,15 +67,16 @@ contract MigrationHelper is IMigrationHelper {
     (
       address[] memory assetsToMigrate,
       RepayInput[] memory positionsToRepay,
-      PermitInput[] memory permits
-    ) = abi.decode(params, (address[], RepayInput[], PermitInput[]));
+      PermitInput[] memory permits,
+      address beneficiary
+    ) = abi.decode(params, (address[], RepayInput[], PermitInput[], address));
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
       V2_POOL.repay(
         positionsToRepay[i].asset,
         positionsToRepay[i].amount,
         positionsToRepay[i].rateMode,
-        initiator
+        initiator == address(this) ? beneficiary : initiator // TODO: does it make to much sense?
       );
     }
 
@@ -112,5 +123,96 @@ contract MigrationHelper is IMigrationHelper {
 
       POOL.supply(asset, withdrawn, user, 0);
     }
+  }
+
+  function migrateWithFlashBorrow(
+    address[] memory assetsToMigrate,
+    RepaySimpleInput[] memory positionsToRepay,
+    PermitInput[] memory permits,
+    CreditDelegationInput[] memory creditDelegationPermits
+  ) external {
+    for (uint256 i = 0; i < permits.length; i++) {
+      permits[i].aToken.permit(
+        msg.sender,
+        address(this),
+        permits[i].value,
+        permits[i].deadline,
+        permits[i].v,
+        permits[i].r,
+        permits[i].s
+      );
+    }
+
+    for (uint256 i = 0; i < creditDelegationPermits.length; i++) {
+      creditDelegationPermits[i].debtToken.delegationWithSig(
+        msg.sender,
+        address(this),
+        permits[i].value,
+        permits[i].deadline,
+        permits[i].v,
+        permits[i].r,
+        permits[i].s
+      );
+    }
+
+    RepayInput[] memory positionsToRepayWithAmounts = new RepayInput[](
+      positionsToRepay.length
+    );
+    uint256 numberOfAssetsToFlash = 0;
+    address[] memory assetsToFlash = new address[](positionsToRepay.length);
+    uint256[] memory amountsToFlash = new uint256[](positionsToRepay.length);
+    uint256[] memory interestRatesToFlash = new uint256[](
+      positionsToRepay.length
+    );
+
+    for (uint256 i = 0; i < positionsToRepay.length; i++) {
+      IERC20WithPermit debtToken = positionsToRepay[i].rateMode == 2
+        ? vTokens[positionsToRepay[i].asset]
+        : sTokens[positionsToRepay[i].asset];
+      require(address(debtToken) != address(0), 'THIS_TYPE_OF_DEBT_NOT_SET');
+
+      positionsToRepayWithAmounts[i] = RepayInput({
+        asset: positionsToRepay[i].asset,
+        amount: debtToken.balanceOf(msg.sender),
+        rateMode: positionsToRepay[i].rateMode
+      });
+
+      bool amountIncludedIntoFLash = false;
+      for (uint256 j = 0; j < numberOfAssetsToFlash; j++) {
+        if (assetsToFlash[j] == positionsToRepay[i].asset) {
+          amountsToFlash[j] += positionsToRepayWithAmounts[i].amount;
+          amountIncludedIntoFLash = true;
+          break;
+        }
+      }
+      if (!amountIncludedIntoFLash) {
+        assetsToFlash[++numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
+          .asset;
+        amountsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
+          .amount;
+        interestRatesToFlash[numberOfAssetsToFlash] = 2; // @dev variable debt
+      }
+    }
+
+    assembly {
+      mstore(assetsToFlash, numberOfAssetsToFlash)
+      mstore(amountsToFlash, numberOfAssetsToFlash)
+      mstore(interestRatesToFlash, numberOfAssetsToFlash)
+    }
+
+    POOL.flashLoan(
+      address(this),
+      assetsToFlash,
+      amountsToFlash,
+      interestRatesToFlash,
+      msg.sender,
+      abi.encode(
+        assetsToMigrate,
+        positionsToRepayWithAmounts,
+        new PermitInput[](0),
+        msg.sender
+      ),
+      0
+    );
   }
 }

@@ -261,7 +261,9 @@ contract MigrationHelperTest is Test {
     }
   }
 
-  function _getV2UserPosition(address user)
+  function _getV2UserPosition(
+    address user
+  )
     internal
     view
     returns (
@@ -325,14 +327,7 @@ contract MigrationHelperTest is Test {
 
   function _getFlashloanParams(
     IMigrationHelper.RepayInput[] memory borrowedPositions
-  )
-    internal
-    returns (
-      address[] memory,
-      uint256[] memory,
-      uint256[] memory
-    )
-  {
+  ) internal returns (address[] memory, uint256[] memory, uint256[] memory) {
     address[] memory borrowedAssets = new address[](borrowedPositions.length);
     uint256[] memory borrowedAmounts = new uint256[](borrowedPositions.length);
     uint256[] memory interestRateModes = new uint256[](
