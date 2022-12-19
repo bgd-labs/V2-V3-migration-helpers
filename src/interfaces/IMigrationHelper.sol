@@ -36,15 +36,17 @@ interface IMigrationHelper is IFlashLoanReceiver {
     uint256 rateMode;
   }
 
-  // @dev Method to do migration of positions which are not requiring repayment. Migrating whole amount of specified assets
-  // @param user - user to migrate positions
-  // @param assets - list of assets to migrate
+  // @dev Method to do migration of positions which require repayment. Migrating whole amount of specified assets
+  // @param assetsToMigrate - list of assets to migrate
+  // @param positionsToRepay - list of assets to be repayed
   // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
+  // @param permits - list of EIP712 permits (credit delegations) for v3 variable debt token
   // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
-  function migrationNoBorrow(
-    address user,
-    address[] calldata assets,
-    PermitInput[] calldata permits
+  function migrate(
+    address[] memory assetsToMigrate,
+    RepaySimpleInput[] memory positionsToRepay,
+    PermitInput[] memory permits,
+    CreditDelegationInput[] memory creditDelegationPermits
   ) external;
 
   // @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution

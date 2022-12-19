@@ -8,14 +8,14 @@ import {AaveV2Polygon} from 'aave-address-book/AaveV2Polygon.sol';
 import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
 
 import {IERC20} from 'solidity-utils/contracts/oz-common/interfaces/IERC20.sol';
+import {ICreditDelegationToken} from '../src/interfaces/ICreditDelegationToken.sol';
 import {IERC20WithATokenCompatibility} from './helpers/IERC20WithATokenCompatibility.sol';
 
-import {DataTypes, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol';
-import {IAaveProtocolDataProvider as IAaveProtocolDataProviderV3} from 'aave-address-book/AaveV3.sol';
+import {DataTypes as DataTypesV2, IAaveProtocolDataProvider} from 'aave-address-book/AaveV2.sol';
+import {DataTypes, IAaveProtocolDataProvider as IAaveProtocolDataProviderV3} from 'aave-address-book/AaveV3.sol';
 
 import {MigrationHelper, IMigrationHelper, IERC20WithPermit} from '../src/contracts/MigrationHelper.sol';
 
-import {IERC20WithATokenCompatibility} from './helpers/IERC20WithATokenCompatibility.sol';
 import {SigUtils} from './helpers/SigUtils.sol';
 
 contract MigrationHelperTest is Test {
@@ -65,21 +65,11 @@ contract MigrationHelperTest is Test {
     usersSimple[14] = 0x1776Fd7CCf75C889d62Cd03B5116342EB13268Bc;
     usersSimple[15] = 0x53498839353845a30745b56a22524Df934F746dE;
     usersSimple[16] = 0x3126ffE1334d892e0c53d8e2Fc83a605DcDCf037;
-
-    // @dev users who has borrowings
-    usersWithDebt = new address[](7);
-    usersWithDebt[0] = 0x0044DB9F44991AB259c1800c723d3980150F58BB;
-    usersWithDebt[1] = 0x07c9fac7a77f98c9cf28D84733e28912C44Cb467;
-    usersWithDebt[2] = 0x02ccbf14d05Af1bBA1C85C0E4EBe34450B4BC3A1;
-    usersWithDebt[3] = 0x022cF8fCF32A0Af972cb723D82E0120b43c79af0;
-    usersWithDebt[4] = 0xe8A4160978d875AD2B9E8A5829693baC89F6f985;
-    usersWithDebt[5] = 0x4303Ddc9943D862f2B205aF468a4A786c5137E76;
-    usersWithDebt[6] = 0x01746f0a55811602F0EEA0DeF665C7086fc5eB3D;
   }
 
   function testCacheATokens() public {
     for (uint256 i = 0; i < v2Reserves.length; i++) {
-      DataTypes.ReserveData memory reserveData = migrationHelper
+      DataTypesV2.ReserveData memory reserveData = migrationHelper
         .V2_POOL()
         .getReserveData(v2Reserves[i]);
       assertEq(
@@ -127,14 +117,16 @@ contract MigrationHelperTest is Test {
           type(uint256).max
         );
       }
-      vm.stopPrank();
 
       // migrate positions to V3
-      migrationHelper.migrationNoBorrow(
-        usersSimple[i],
+      migrationHelper.migrate(
         suppliedPositions,
-        new IMigrationHelper.PermitInput[](0)
+        new IMigrationHelper.RepaySimpleInput[](0),
+        new IMigrationHelper.PermitInput[](0),
+        new IMigrationHelper.CreditDelegationInput[](0)
       );
+
+      vm.stopPrank();
 
       // check that positions were migrated successfully
       _checkMigratedSupplies(
@@ -145,21 +137,17 @@ contract MigrationHelperTest is Test {
     }
   }
 
-  function testMigrationBorrowWithPermit() public {
-    address[] memory suppliedPositions;
-    uint256[] memory suppliedBalances;
-    IMigrationHelper.RepayInput[] memory borrowedPositions;
-
+  function testMigrationNoBorrowWithPermit() public {
     (address user, uint256 privateKey) = _getUserWithPosition();
 
     // get positions
     (
-      suppliedPositions,
-      suppliedBalances,
-      borrowedPositions
+      address[] memory suppliedPositions,
+      uint256[] memory suppliedBalances,
+
     ) = _getV2UserPosition(user);
 
-    // calculate permit
+    // calculate permits
     IMigrationHelper.PermitInput[] memory permits = _getPermits(
       user,
       privateKey,
@@ -167,73 +155,68 @@ contract MigrationHelperTest is Test {
       suppliedBalances
     );
 
+    vm.startPrank(user);
+
     // migrate positions to V3
-    migrationHelper.migrationNoBorrow(user, suppliedPositions, permits);
+    migrationHelper.migrate(
+      suppliedPositions,
+      new IMigrationHelper.RepaySimpleInput[](0),
+      permits,
+      new IMigrationHelper.CreditDelegationInput[](0)
+    );
+
+    vm.stopPrank();
 
     // check that positions were migrated successfully
     _checkMigratedSupplies(user, suppliedPositions, suppliedBalances);
   }
 
-  function testMigrationBorrowNoPermit() public {
-    address[] memory suppliedPositions;
-    uint256[] memory suppliedBalances;
-    IMigrationHelper.RepayInput[] memory borrowedPositions;
-    address[] memory borrowedAssets;
-    uint256[] memory borrowedAmounts;
-    uint256[] memory interestRateModes;
+  function testMigrationWithCreditDelegation() public {
+    (address user, uint256 privateKey) = _getUserWithBorrowPosition();
+    // get positions
+    (
+      address[] memory suppliedPositions,
+      uint256[] memory suppliedBalances,
+      IMigrationHelper.RepayInput[] memory positionsToRepay
+    ) = _getV2UserPosition(user);
 
-    for (uint256 i = 0; i < usersWithDebt.length; i++) {
-      // get positions
-      (
-        suppliedPositions,
-        suppliedBalances,
-        borrowedPositions
-      ) = _getV2UserPosition(usersWithDebt[i]);
-
-      require(borrowedPositions.length != 0, 'BAD_USER_FOR_THIS_TEST');
-
-      (
-        borrowedAssets,
-        borrowedAmounts,
-        interestRateModes
-      ) = _getFlashloanParams(borrowedPositions);
-
-      vm.startPrank(usersWithDebt[i]);
-
-      // approve aTokens to helper
-      for (uint256 j = 0; j < suppliedPositions.length; j++) {
-        migrationHelper.aTokens(suppliedPositions[j]).approve(
-          address(migrationHelper),
-          type(uint256).max
-        );
-      }
-
-      // get flashloan to migrate positions to v3
-      migrationHelper.POOL().flashLoan(
-        address(migrationHelper),
-        borrowedAssets,
-        borrowedAmounts,
-        interestRateModes,
-        usersWithDebt[i],
-        abi.encode(
-          suppliedPositions,
-          borrowedPositions,
-          new IMigrationHelper.PermitInput[](0)
-        ),
-        0
+    IMigrationHelper.RepaySimpleInput[]
+      memory positionsToRepaySimple = _getSimplePositionsToRepay(
+        positionsToRepay
       );
 
-      vm.stopPrank();
+    // calculate permits
+    IMigrationHelper.PermitInput[] memory permits = _getPermits(
+      user,
+      privateKey,
+      suppliedPositions,
+      suppliedBalances
+    );
 
-      // check that positions were migrated successfully
-      _checkMigratedSupplies(
-        usersWithDebt[i],
-        suppliedPositions,
-        suppliedBalances
+    // calculate credit
+    IMigrationHelper.CreditDelegationInput[]
+      memory creditDelegations = _getCreditDelegations(
+        user,
+        privateKey,
+        positionsToRepay
       );
 
-      _checkMigratedBorrowings(usersWithDebt[i], borrowedPositions);
-    }
+    // migrate positions to V3
+    vm.startPrank(user);
+
+    migrationHelper.migrate(
+      suppliedPositions,
+      positionsToRepaySimple,
+      permits,
+      creditDelegations
+    );
+
+    vm.stopPrank();
+
+    // check that positions were migrated successfully
+    _checkMigratedSupplies(user, suppliedPositions, suppliedBalances);
+
+    _checkMigratedBorrowings(user, positionsToRepay);
   }
 
   function _checkMigratedSupplies(
@@ -261,9 +244,7 @@ contract MigrationHelperTest is Test {
     }
   }
 
-  function _getV2UserPosition(
-    address user
-  )
+  function _getV2UserPosition(address user)
     internal
     view
     returns (
@@ -325,9 +306,33 @@ contract MigrationHelperTest is Test {
     return (suppliedPositions, suppliedBalances, borrowedPositions);
   }
 
+  function _getSimplePositionsToRepay(
+    IMigrationHelper.RepayInput[] memory positionsToRepay
+  ) internal pure returns (IMigrationHelper.RepaySimpleInput[] memory) {
+    IMigrationHelper.RepaySimpleInput[]
+      memory positionsToRepaySimple = new IMigrationHelper.RepaySimpleInput[](
+        positionsToRepay.length
+      );
+    for (uint256 i; i < positionsToRepay.length; ++i) {
+      positionsToRepaySimple[i] = IMigrationHelper.RepaySimpleInput({
+        asset: positionsToRepay[i].asset,
+        rateMode: positionsToRepay[i].rateMode
+      });
+    }
+
+    return positionsToRepaySimple;
+  }
+
   function _getFlashloanParams(
     IMigrationHelper.RepayInput[] memory borrowedPositions
-  ) internal returns (address[] memory, uint256[] memory, uint256[] memory) {
+  )
+    internal
+    returns (
+      address[] memory,
+      uint256[] memory,
+      uint256[] memory
+    )
+  {
     address[] memory borrowedAssets = new address[](borrowedPositions.length);
     uint256[] memory borrowedAmounts = new uint256[](borrowedPositions.length);
     uint256[] memory interestRateModes = new uint256[](
@@ -387,6 +392,29 @@ contract MigrationHelperTest is Test {
     return (owner, ownerPrivateKey);
   }
 
+  function _getUserWithBorrowPosition() internal returns (address, uint256) {
+    uint256 ownerPrivateKey = 0xA11CEB;
+
+    address owner = vm.addr(ownerPrivateKey);
+    deal(DAI, owner, 10000e18);
+    deal(ETH, owner, 10e18);
+
+    vm.startPrank(owner);
+
+    IERC20(DAI).approve(address(migrationHelper.V2_POOL()), type(uint256).max);
+    IERC20(ETH).approve(address(migrationHelper.V2_POOL()), type(uint256).max);
+
+    migrationHelper.V2_POOL().deposit(DAI, 10000 ether, owner, 0);
+    migrationHelper.V2_POOL().deposit(ETH, 10 ether, owner, 0);
+
+    // migrationHelper.V2_POOL().borrow(ETH, 2 ether, 1, 0, owner);
+    migrationHelper.V2_POOL().borrow(ETH, 1 ether, 2, 0, owner);
+
+    vm.stopPrank();
+
+    return (owner, ownerPrivateKey);
+  }
+
   function _getPermits(
     address user,
     uint256 privateKey,
@@ -409,7 +437,7 @@ contract MigrationHelperTest is Test {
         deadline: type(uint256).max
       });
 
-      bytes32 digest = sigUtils.getTypedDataHash(
+      bytes32 digest = sigUtils.getPermitTypedDataHash(
         permit,
         token.DOMAIN_SEPARATOR()
       );
@@ -427,5 +455,60 @@ contract MigrationHelperTest is Test {
     }
 
     return permits;
+  }
+
+  function _getCreditDelegations(
+    address user,
+    uint256 privateKey,
+    IMigrationHelper.RepayInput[] memory positionsToRepay
+  ) internal returns (IMigrationHelper.CreditDelegationInput[] memory) {
+    IMigrationHelper.CreditDelegationInput[]
+      memory creditDelegations = new IMigrationHelper.CreditDelegationInput[](
+        positionsToRepay.length
+      );
+
+    // calculate params for v3 credit delegation
+    (
+      address[] memory borrowedAssets,
+      uint256[] memory borrowedAmounts,
+
+    ) = _getFlashloanParams(positionsToRepay);
+
+    for (uint256 i = 0; i < borrowedAssets.length; i++) {
+      // get v3 variable debt token
+      DataTypes.ReserveData memory reserveData = migrationHelper
+        .POOL()
+        .getReserveData(borrowedAssets[i]);
+
+      IERC20WithPermit token = IERC20WithPermit(
+        reserveData.variableDebtTokenAddress
+      );
+
+      SigUtils.CreditDelegation memory creditDelegation = SigUtils
+        .CreditDelegation({
+          delegatee: address(migrationHelper),
+          value: borrowedAmounts[i],
+          nonce: token.nonces(user),
+          deadline: type(uint256).max
+        });
+
+      bytes32 digest = sigUtils.getCreditDelegationTypedDataHash(
+        creditDelegation,
+        token.DOMAIN_SEPARATOR()
+      );
+
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+      creditDelegations[i] = IMigrationHelper.CreditDelegationInput({
+        debtToken: ICreditDelegationToken(address(token)),
+        value: borrowedAmounts[i],
+        deadline: type(uint256).max,
+        v: v,
+        r: r,
+        s: s
+      });
+    }
+
+    return creditDelegations;
   }
 }
