@@ -4,10 +4,11 @@ pragma solidity ^0.8.10;
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
 import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
+import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
-contract MigrationHelper is IMigrationHelper {
+contract MigrationHelper is Ownable, IMigrationHelper {
   //@dev the source pool
   IV2LendingPool public immutable V2_POOL;
 
@@ -158,6 +159,18 @@ contract MigrationHelper is IMigrationHelper {
         msg.sender,
         abi.encode(assetsToMigrate, positionsToRepayWithAmounts, msg.sender),
         0
+      );
+    }
+  }
+
+  function resqueFunds(EmergencyTransferInput[] calldata emergencyInput)
+    external
+    onlyOwner
+  {
+    for (uint256 i = 0; i < emergencyInput.length; i++) {
+      emergencyInput[i].asset.transfer(
+        emergencyInput[i].to,
+        emergencyInput[i].amount
       );
     }
   }
