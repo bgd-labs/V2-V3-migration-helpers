@@ -90,6 +90,7 @@ contract MigrationHelper is IMigrationHelper {
   function _migrationNoBorrow(address user, address[] memory assets) internal {
     address asset;
     IERC20WithPermit aToken;
+    uint256 aTokenBalance;
 
     for (uint256 i = 0; i < assets.length; i++) {
       asset = assets[i];
@@ -100,13 +101,10 @@ contract MigrationHelper is IMigrationHelper {
         'INVALID_OR_NOT_CACHED_ASSET'
       );
 
-      aToken.transferFrom(user, address(this), aToken.balanceOf(user));
+      aTokenBalance = aToken.balanceOf(user);
+      aToken.transferFrom(user, address(this), aTokenBalance);
 
-      uint256 withdrawn = V2_POOL.withdraw(
-        asset,
-        type(uint256).max,
-        address(this)
-      );
+      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
 
       POOL.supply(asset, withdrawn, user, 0);
     }
