@@ -53,9 +53,9 @@ contract MigrationHelper is IMigrationHelper {
 
   //@Iinheritdoc IFlashLoanReceiver
   // expected structure of the params:
-  // assetsToMigrate - the list of supplied assets to migrate
-  // positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
-  // beneficiary - the user who requested the migration
+  //    assetsToMigrate - the list of supplied assets to migrate
+  //    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
+  //    beneficiary - the user who requested the migration
   function executeOperation(
     address[] calldata,
     uint256[] calldata,
@@ -63,6 +63,7 @@ contract MigrationHelper is IMigrationHelper {
     address initiator,
     bytes calldata params
   ) external returns (bool) {
+    require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
     (
       address[] memory assetsToMigrate,
       RepayInput[] memory positionsToRepay,
