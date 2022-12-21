@@ -60,8 +60,8 @@ interface IMigrationHelper is IFlashLoanReceiver {
 
   function V2_POOL() external returns (IV2LendingPool);
 
-  // @dev public method for resque funds in case of a wrong transfer
+  // @dev public method for rescue funds in case of a wrong transfer
   // @param emergencyInput - array of parameters to transfer out funds
-  function resqueFunds(EmergencyTransferInput[] calldata emergencyInput)
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
     external;
 }

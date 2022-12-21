@@ -163,7 +163,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  function resqueFunds(EmergencyTransferInput[] calldata emergencyInput)
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
     external
     onlyOwner
   {
