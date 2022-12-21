@@ -22,6 +22,12 @@ interface IMigrationHelper is IFlashLoanReceiver {
     uint256 rateMode;
   }
 
+  struct EmergencyTransferInput {
+    IERC20WithPermit asset;
+    uint256 amount;
+    address to;
+  }
+
   // @dev Method to do migration of positions which are not requiring repayment. Migrating whole amount of specified assets
   // @param user - user to migrate positions
   // @param assets - list of assets to migrate
@@ -37,4 +43,9 @@ interface IMigrationHelper is IFlashLoanReceiver {
   function cacheATokens() external;
 
   function V2_POOL() external returns (IV2LendingPool);
+
+  // @dev public method for rescue funds in case of a wrong transfer
+  // @param emergencyInput - array of parameters to transfer out funds
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
+    external;
 }
