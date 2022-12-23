@@ -36,11 +36,17 @@ interface IMigrationHelper is IFlashLoanReceiver {
     uint256 rateMode;
   }
 
+  struct EmergencyTransferInput {
+    IERC20WithPermit asset;
+    uint256 amount;
+    address to;
+  }
+
   // @dev Method to do migration of positions which require repayment. Migrating whole amount of specified assets
   // @param assetsToMigrate - list of assets to migrate
   // @param positionsToRepay - list of assets to be repayed
   // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
-  // @param permits - list of EIP712 permits (credit delegations) for v3 variable debt token
+  // @param creditDelegationPermits - list of EIP712 signatures (credit delegations) for v3 variable debt token
   // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
   function migrate(
     address[] memory assetsToMigrate,
@@ -53,4 +59,9 @@ interface IMigrationHelper is IFlashLoanReceiver {
   function cacheATokens() external;
 
   function V2_POOL() external returns (IV2LendingPool);
+
+  // @dev public method for rescue funds in case of a wrong transfer
+  // @param emergencyInput - array of parameters to transfer out funds
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
+    external;
 }
