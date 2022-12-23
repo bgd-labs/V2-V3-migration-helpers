@@ -52,65 +52,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  //@Iinheritdoc IFlashLoanReceiver
-  // expected structure of the params:
-  //    assetsToMigrate - the list of supplied assets to migrate
-  //    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
-  //    beneficiary - the user who requested the migration
-  function executeOperation(
-    address[] calldata,
-    uint256[] calldata,
-    uint256[] calldata,
-    address initiator,
-    bytes calldata params
-  ) external returns (bool) {
-    require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
-    (
-      address[] memory assetsToMigrate,
-      RepayInput[] memory positionsToRepay,
-      address beneficiary
-    ) = abi.decode(params, (address[], RepayInput[], address));
-
-    address user = initiator == address(this) ? beneficiary : initiator;
-
-    for (uint256 i = 0; i < positionsToRepay.length; i++) {
-      V2_POOL.repay(
-        positionsToRepay[i].asset,
-        positionsToRepay[i].amount,
-        positionsToRepay[i].rateMode,
-        user
-      );
-    }
-
-    _migrationNoBorrow(user, assetsToMigrate);
-
-    return true;
-  }
-
   //@Iinheritdoc IMigrationHelper
-  function _migrationNoBorrow(address user, address[] memory assets) internal {
-    address asset;
-    IERC20WithPermit aToken;
-    uint256 aTokenBalance;
-
-    for (uint256 i = 0; i < assets.length; i++) {
-      asset = assets[i];
-      aToken = aTokens[asset];
-
-      require(
-        asset != address(0) && address(aToken) != address(0),
-        'INVALID_OR_NOT_CACHED_ASSET'
-      );
-
-      aTokenBalance = aToken.balanceOf(user);
-      aToken.transferFrom(user, address(this), aTokenBalance);
-
-      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
-
-      POOL.supply(asset, withdrawn, user, 0);
-    }
-  }
-
   function migrate(
     address[] memory assetsToMigrate,
     RepaySimpleInput[] memory positionsToRepay,
@@ -163,6 +105,42 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
+  //@Iinheritdoc IFlashLoanReceiver
+  // expected structure of the params:
+  //    assetsToMigrate - the list of supplied assets to migrate
+  //    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
+  //    beneficiary - the user who requested the migration
+  function executeOperation(
+    address[] calldata,
+    uint256[] calldata,
+    uint256[] calldata,
+    address initiator,
+    bytes calldata params
+  ) external returns (bool) {
+    require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
+    (
+      address[] memory assetsToMigrate,
+      RepayInput[] memory positionsToRepay,
+      address beneficiary
+    ) = abi.decode(params, (address[], RepayInput[], address));
+
+    address user = initiator == address(this) ? beneficiary : initiator;
+
+    for (uint256 i = 0; i < positionsToRepay.length; i++) {
+      V2_POOL.repay(
+        positionsToRepay[i].asset,
+        positionsToRepay[i].amount,
+        positionsToRepay[i].rateMode,
+        user
+      );
+    }
+
+    _migrationNoBorrow(user, assetsToMigrate);
+
+    return true;
+  }
+
+  //@Iinheritdoc IMigrationHelper
   function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
     external
     onlyOwner
@@ -172,6 +150,30 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         emergencyInput[i].to,
         emergencyInput[i].amount
       );
+    }
+  }
+
+  //@Iinheritdoc IMigrationHelper
+  function _migrationNoBorrow(address user, address[] memory assets) internal {
+    address asset;
+    IERC20WithPermit aToken;
+    uint256 aTokenBalance;
+
+    for (uint256 i = 0; i < assets.length; i++) {
+      asset = assets[i];
+      aToken = aTokens[asset];
+
+      require(
+        asset != address(0) && address(aToken) != address(0),
+        'INVALID_OR_NOT_CACHED_ASSET'
+      );
+
+      aTokenBalance = aToken.balanceOf(user);
+      aToken.transferFrom(user, address(this), aTokenBalance);
+
+      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
+
+      POOL.supply(asset, withdrawn, user, 0);
     }
   }
 
