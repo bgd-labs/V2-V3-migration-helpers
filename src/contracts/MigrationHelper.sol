@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
+import {SafeERC20} from 'solidity-utils/contracts/oz-common/SafeERC20.sol';
 import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
@@ -9,14 +10,19 @@ import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is Ownable, IMigrationHelper {
-  //@dev the source pool
+  using SafeERC20 for IERC20WithPermit;
+
+  // @dev the source pool
   IV2LendingPool public immutable V2_POOL;
 
-  //@dev the destination pool
+  // @dev the destination pool
+  // naming for compatibility with IFlashloanReceiver
   IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
   IPool public immutable POOL;
 
   mapping(address => IERC20WithPermit) public aTokens;
+  mapping(address => IERC20WithPermit) public vTokens;
+  mapping(address => IERC20WithPermit) public sTokens;
 
   constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
   {
@@ -34,60 +40,35 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       if (address(aTokens[reserves[i]]) == address(0)) {
         reserveData = V2_POOL.getReserveData(reserves[i]);
         aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
-        IERC20WithPermit(reserves[i]).approve(
+        vTokens[reserves[i]] = IERC20WithPermit(
+          reserveData.variableDebtTokenAddress
+        );
+        sTokens[reserves[i]] = IERC20WithPermit(
+          reserveData.stableDebtTokenAddress
+        );
+
+        IERC20WithPermit(reserves[i]).safeApprove(
           address(V2_POOL),
           type(uint256).max
         );
-        IERC20WithPermit(reserves[i]).approve(address(POOL), type(uint256).max);
+        IERC20WithPermit(reserves[i]).safeApprove(
+          address(POOL),
+          type(uint256).max
+        );
       }
     }
   }
 
-  //@Iinheritdoc IFlashLoanReceiver
-  // expected structure of the params:
-  // assetsToMigrate - the list of supplied assets to migrate
-  // positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
-  // permits - the list of a EIP712 like permits, if allowance was not granted in advance
-  function executeOperation(
-    address[] calldata,
-    uint256[] calldata,
-    uint256[] calldata,
-    address initiator,
-    bytes calldata params
-  ) external returns (bool) {
-    (
-      address[] memory assetsToMigrate,
-      RepayInput[] memory positionsToRepay,
-      PermitInput[] memory permits
-    ) = abi.decode(params, (address[], RepayInput[], PermitInput[]));
-
-    for (uint256 i = 0; i < positionsToRepay.length; i++) {
-      V2_POOL.repay(
-        positionsToRepay[i].asset,
-        positionsToRepay[i].amount,
-        positionsToRepay[i].rateMode,
-        initiator
-      );
-    }
-
-    migrationNoBorrow(initiator, assetsToMigrate, permits);
-
-    return true;
-  }
-
   //@Iinheritdoc IMigrationHelper
-  function migrationNoBorrow(
-    address user,
-    address[] memory assets,
-    PermitInput[] memory permits
-  ) public {
-    address asset;
-    IERC20WithPermit aToken;
-    uint256 aTokenBalance;
-
+  function migrate(
+    address[] memory assetsToMigrate,
+    RepaySimpleInput[] memory positionsToRepay,
+    PermitInput[] memory permits,
+    CreditDelegationInput[] memory creditDelegationPermits
+  ) external {
     for (uint256 i = 0; i < permits.length; i++) {
       permits[i].aToken.permit(
-        user,
+        msg.sender,
         address(this),
         permits[i].value,
         permits[i].deadline,
@@ -97,20 +78,167 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       );
     }
 
+    if (positionsToRepay.length == 0) {
+      _migrationNoBorrow(msg.sender, assetsToMigrate);
+    } else {
+      for (uint256 i = 0; i < creditDelegationPermits.length; i++) {
+        creditDelegationPermits[i].debtToken.delegationWithSig(
+          msg.sender,
+          address(this),
+          creditDelegationPermits[i].value,
+          creditDelegationPermits[i].deadline,
+          creditDelegationPermits[i].v,
+          creditDelegationPermits[i].r,
+          creditDelegationPermits[i].s
+        );
+      }
+
+      (
+        RepayInput[] memory positionsToRepayWithAmounts,
+        address[] memory assetsToFlash,
+        uint256[] memory amountsToFlash,
+        uint256[] memory interestRatesToFlash
+      ) = _getFlashloanParams(positionsToRepay);
+
+      POOL.flashLoan(
+        address(this),
+        assetsToFlash,
+        amountsToFlash,
+        interestRatesToFlash,
+        msg.sender,
+        abi.encode(assetsToMigrate, positionsToRepayWithAmounts, msg.sender),
+        0
+      );
+    }
+  }
+
+  //@Iinheritdoc IFlashLoanReceiver
+  // expected structure of the params:
+  //    assetsToMigrate - the list of supplied assets to migrate
+  //    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
+  //    beneficiary - the user who requested the migration
+  function executeOperation(
+    address[] calldata,
+    uint256[] calldata,
+    uint256[] calldata,
+    address initiator,
+    bytes calldata params
+  ) external returns (bool) {
+    require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
+    require(initiator == address(this), 'ONLY_INITIATED_BY_MIGRATION_HELPER');
+
+    (
+      address[] memory assetsToMigrate,
+      RepayInput[] memory positionsToRepay,
+      address user
+    ) = abi.decode(params, (address[], RepayInput[], address));
+
+    for (uint256 i = 0; i < positionsToRepay.length; i++) {
+      V2_POOL.repay(
+        positionsToRepay[i].asset,
+        positionsToRepay[i].amount,
+        positionsToRepay[i].rateMode,
+        user
+      );
+    }
+
+    _migrationNoBorrow(user, assetsToMigrate);
+
+    return true;
+  }
+
+  function _migrationNoBorrow(address user, address[] memory assets) internal {
+    address asset;
+    IERC20WithPermit aToken;
+    uint256 aTokenBalance;
+
     for (uint256 i = 0; i < assets.length; i++) {
       asset = assets[i];
       aToken = aTokens[asset];
+
       require(
         asset != address(0) && address(aToken) != address(0),
         'INVALID_OR_NOT_CACHED_ASSET'
       );
 
       aTokenBalance = aToken.balanceOf(user);
-      aToken.transferFrom(user, address(this), aTokenBalance);
+      aToken.safeTransferFrom(user, address(this), aTokenBalance);
       uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
 
       POOL.supply(asset, withdrawn, user, 0);
     }
+  }
+
+  function _getFlashloanParams(RepaySimpleInput[] memory positionsToRepay)
+    internal
+    view
+    returns (
+      RepayInput[] memory,
+      address[] memory,
+      uint256[] memory,
+      uint256[] memory
+    )
+  {
+    RepayInput[] memory positionsToRepayWithAmounts = new RepayInput[](
+      positionsToRepay.length
+    );
+
+    uint256 numberOfAssetsToFlash;
+    address[] memory assetsToFlash = new address[](positionsToRepay.length);
+    uint256[] memory amountsToFlash = new uint256[](positionsToRepay.length);
+    uint256[] memory interestRatesToFlash = new uint256[](
+      positionsToRepay.length
+    );
+
+    for (uint256 i = 0; i < positionsToRepay.length; i++) {
+      IERC20WithPermit debtToken = positionsToRepay[i].rateMode == 2
+        ? vTokens[positionsToRepay[i].asset]
+        : sTokens[positionsToRepay[i].asset];
+      require(address(debtToken) != address(0), 'THIS_TYPE_OF_DEBT_NOT_SET');
+
+      positionsToRepayWithAmounts[i] = RepayInput({
+        asset: positionsToRepay[i].asset,
+        amount: debtToken.balanceOf(msg.sender),
+        rateMode: positionsToRepay[i].rateMode
+      });
+
+      bool amountIncludedIntoFlash;
+
+      // if asset was also borrowed in another mode - add values
+      for (uint256 j = 0; j < numberOfAssetsToFlash; j++) {
+        if (assetsToFlash[j] == positionsToRepay[i].asset) {
+          amountsToFlash[j] += positionsToRepayWithAmounts[i].amount;
+          amountIncludedIntoFlash = true;
+          break;
+        }
+      }
+
+      // if this is the first ocurance of the asset add it
+      if (!amountIncludedIntoFlash) {
+        assetsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
+          .asset;
+        amountsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
+          .amount;
+        interestRatesToFlash[numberOfAssetsToFlash] = 2; // @dev variable debt
+
+        ++numberOfAssetsToFlash;
+      }
+    }
+
+    // we do not know the length in advance, so we init arrays with the maximum possible length
+    // and then squeeze the array using mstore
+    assembly {
+      mstore(assetsToFlash, numberOfAssetsToFlash)
+      mstore(amountsToFlash, numberOfAssetsToFlash)
+      mstore(interestRatesToFlash, numberOfAssetsToFlash)
+    }
+
+    return (
+      positionsToRepayWithAmounts,
+      assetsToFlash,
+      amountsToFlash,
+      interestRatesToFlash
+    );
   }
 
   function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
@@ -118,7 +246,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     onlyOwner
   {
     for (uint256 i = 0; i < emergencyInput.length; i++) {
-      emergencyInput[i].asset.transfer(
+      emergencyInput[i].asset.safeTransfer(
         emergencyInput[i].to,
         emergencyInput[i].amount
       );
