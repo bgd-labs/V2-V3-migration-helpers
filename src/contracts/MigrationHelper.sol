@@ -67,7 +67,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     CreditDelegationInput[] memory creditDelegationPermits
   ) external {
     for (uint256 i = 0; i < permits.length; i++) {
-      permits[i].aToken.safePermit(
+      permits[i].aToken.permit(
         msg.sender,
         address(this),
         permits[i].value,
