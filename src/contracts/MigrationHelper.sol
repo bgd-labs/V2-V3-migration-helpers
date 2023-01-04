@@ -47,11 +47,14 @@ contract MigrationHelper is Ownable, IMigrationHelper {
           reserveData.stableDebtTokenAddress
         );
 
-        IERC20WithPermit(reserves[i]).approve(
+        IERC20WithPermit(reserves[i]).safeApprove(
           address(V2_POOL),
           type(uint256).max
         );
-        IERC20WithPermit(reserves[i]).approve(address(POOL), type(uint256).max);
+        IERC20WithPermit(reserves[i]).safeApprove(
+          address(POOL),
+          type(uint256).max
+        );
       }
     }
   }
@@ -64,7 +67,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     CreditDelegationInput[] memory creditDelegationPermits
   ) external {
     for (uint256 i = 0; i < permits.length; i++) {
-      permits[i].aToken.permit(
+      permits[i].aToken.safePermit(
         msg.sender,
         address(this),
         permits[i].value,
@@ -118,10 +121,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     address[] calldata,
     uint256[] calldata,
     uint256[] calldata,
-    address,
+    address initiator,
     bytes calldata params
   ) external returns (bool) {
     require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
+    require(initiator == address(this), 'ONLY_INITIATED_BY_MIGRATION_HELPER');
+
     (
       address[] memory assetsToMigrate,
       RepayInput[] memory positionsToRepay,
@@ -157,7 +162,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       );
 
       aTokenBalance = aToken.balanceOf(user);
-      aToken.transferFrom(user, address(this), aTokenBalance);
+      aToken.safeTransferFrom(user, address(this), aTokenBalance);
       uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
 
       POOL.supply(asset, withdrawn, user, 0);
@@ -220,6 +225,8 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       }
     }
 
+    // we do not know the length in advance, so we init arrays with the maximum possible length
+    // and then squeeze the array using mstore
     assembly {
       mstore(assetsToFlash, numberOfAssetsToFlash)
       mstore(amountsToFlash, numberOfAssetsToFlash)
@@ -239,7 +246,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     onlyOwner
   {
     for (uint256 i = 0; i < emergencyInput.length; i++) {
-      emergencyInput[i].asset.transfer(
+      emergencyInput[i].asset.safeTransfer(
         emergencyInput[i].to,
         emergencyInput[i].amount
       );
