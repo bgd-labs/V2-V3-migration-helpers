@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
+import {SafeERC20} from 'solidity-utils/contracts/oz-common/SafeERC20.sol';
 import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
 import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
 import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
@@ -9,10 +10,13 @@ import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
 contract MigrationHelper is Ownable, IMigrationHelper {
-  //@dev the source pool
+  using SafeERC20 for IERC20WithPermit;
+
+  // @dev the source pool
   IV2LendingPool public immutable V2_POOL;
 
-  //@dev the destination pool
+  // @dev the destination pool
+  // naming for compatibility with IFlashloanReceiver
   IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
   IPool public immutable POOL;
 
@@ -114,17 +118,15 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     address[] calldata,
     uint256[] calldata,
     uint256[] calldata,
-    address initiator,
+    address,
     bytes calldata params
   ) external returns (bool) {
     require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
     (
       address[] memory assetsToMigrate,
       RepayInput[] memory positionsToRepay,
-      address beneficiary
+      address user
     ) = abi.decode(params, (address[], RepayInput[], address));
-
-    address user = initiator == address(this) ? beneficiary : initiator;
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
       V2_POOL.repay(
@@ -176,7 +178,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       positionsToRepay.length
     );
 
-    uint256 numberOfAssetsToFlash = 0;
+    uint256 numberOfAssetsToFlash;
     address[] memory assetsToFlash = new address[](positionsToRepay.length);
     uint256[] memory amountsToFlash = new uint256[](positionsToRepay.length);
     uint256[] memory interestRatesToFlash = new uint256[](
@@ -195,7 +197,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         rateMode: positionsToRepay[i].rateMode
       });
 
-      bool amountIncludedIntoFlash = false;
+      bool amountIncludedIntoFlash;
 
       // if asset was also borrowed in another mode - add values
       for (uint256 j = 0; j < numberOfAssetsToFlash; j++) {
