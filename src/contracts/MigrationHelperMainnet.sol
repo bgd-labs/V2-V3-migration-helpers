@@ -11,15 +11,14 @@ import {MigrationHelper} from './MigrationHelper.sol';
 contract MigrationHelperMainnet is MigrationHelper {
   using SafeERC20 for IERC20WithPermit;
 
-  IERC20WithPermit public immutable STETH;
-  IWstETH public immutable WSTETH;
+  IERC20WithPermit public constant STETH =
+    IERC20WithPermit(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+  IWstETH public constant WSTETH =
+    IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
   constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
     MigrationHelper(v3AddressesProvider, v2Pool)
-  {
-    STETH = IERC20WithPermit(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84); // stETH address
-    WSTETH = IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0); // wstETH address
-  }
+  {}
 
   function _getAssetAndAmountToSupply(address asset, uint256 withdrawn)
     internal
