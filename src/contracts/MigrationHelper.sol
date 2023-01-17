@@ -174,12 +174,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  function _processSupply(address asset, uint256 withdrawn)
+  function _processSupply(address asset, uint256 amount)
     internal
     virtual
     returns (address, uint256)
   {
-    return (asset, withdrawn);
+    return (asset, amount);
   }
 
   function _getFlashloanParams(RepaySimpleInput[] memory positionsToRepay)
