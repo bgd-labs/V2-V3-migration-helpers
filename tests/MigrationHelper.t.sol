@@ -34,7 +34,7 @@ contract MigrationHelperTest is Test {
   mapping(address => uint256) private assetsIndex;
 
   function setUp() public {
-    vm.createSelectFork(vm.rpcUrl('polygon'), 33920075);
+    vm.createSelectFork(vm.rpcUrl('polygon'), 33920076);
     migrationHelper = new MigrationHelper(
       AaveV3Polygon.POOL_ADDRESSES_PROVIDER,
       AaveV2Polygon.POOL

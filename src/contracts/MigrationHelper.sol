@@ -165,16 +165,16 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       aToken.safeTransferFrom(user, address(this), aTokenBalance);
       uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
 
-      (
-        address assetToSupply,
-        uint256 amountToSupply
-      ) = _getAssetAndAmountToSupply(asset, withdrawn);
+      (address assetToSupply, uint256 amountToSupply) = _processSupply(
+        asset,
+        withdrawn
+      );
 
       POOL.supply(assetToSupply, amountToSupply, user, 0);
     }
   }
 
-  function _getAssetAndAmountToSupply(address asset, uint256 withdrawn)
+  function _processSupply(address asset, uint256 withdrawn)
     internal
     virtual
     returns (address, uint256)

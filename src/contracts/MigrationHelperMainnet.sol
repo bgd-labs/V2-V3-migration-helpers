@@ -22,7 +22,7 @@ contract MigrationHelperMainnet is MigrationHelper {
     STETH.safeApprove(address(WSTETH), type(uint256).max);
   }
 
-  function _getAssetAndAmountToSupply(address asset, uint256 withdrawn)
+  function _processSupply(address asset, uint256 withdrawn)
     internal
     override
     returns (address, uint256)
