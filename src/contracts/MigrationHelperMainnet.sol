@@ -18,7 +18,9 @@ contract MigrationHelperMainnet is MigrationHelper {
 
   constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
     MigrationHelper(v3AddressesProvider, v2Pool)
-  {}
+  {
+    STETH.safeApprove(address(WSTETH), type(uint256).max);
+  }
 
   function _getAssetAndAmountToSupply(address asset, uint256 withdrawn)
     internal
@@ -26,7 +28,6 @@ contract MigrationHelperMainnet is MigrationHelper {
     returns (address, uint256)
   {
     if (asset == address(STETH)) {
-      STETH.safeApprove(address(this), withdrawn);
       uint256 wrapped = WSTETH.wrap(withdrawn);
 
       return (address(WSTETH), wrapped);

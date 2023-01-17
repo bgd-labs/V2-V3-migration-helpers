@@ -2,5 +2,5 @@
 pragma solidity ^0.8.10;
 
 interface IWstETH {
-  function wrap(uint256 _stETHAmount) external returns (uint256);
+  function wrap(uint256 stETHAmount) external returns (uint256);
 }
