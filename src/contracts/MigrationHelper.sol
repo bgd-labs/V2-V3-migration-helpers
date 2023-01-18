@@ -147,6 +147,14 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     return true;
   }
 
+  function getMigrationSupply(address asset, uint256 amount)
+    external
+    virtual
+    returns (address, uint256)
+  {
+    return (asset, amount);
+  }
+
   function _migrationNoBorrow(address user, address[] memory assets) internal {
     address asset;
     IERC20WithPermit aToken;
