@@ -9,6 +9,10 @@ import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
+/**
+ * @author BGD Labs
+ * @dev Contract to migrate positions from Aave v2 to Aave v3 pool
+ */
 contract MigrationHelper is Ownable, IMigrationHelper {
   using SafeERC20 for IERC20WithPermit;
 
@@ -24,6 +28,11 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   mapping(address => IERC20WithPermit) public vTokens;
   mapping(address => IERC20WithPermit) public sTokens;
 
+  /**
+   * @notice Constructor.
+   * @param v3AddressesProvider The address provider of the v3 pool
+   * @param v2Pool The v2 pool
+   */
   constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
   {
     ADDRESSES_PROVIDER = v3AddressesProvider;
@@ -147,6 +156,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     return true;
   }
 
+  //@Iinheritdoc IMigrationHelper
   function getMigrationSupply(address asset, uint256 amount)
     external
     virtual

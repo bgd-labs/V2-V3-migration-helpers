@@ -22,6 +22,7 @@ contract MigrationHelperMainnet is MigrationHelper {
     STETH.safeApprove(address(WSTETH), type(uint256).max);
   }
 
+  //@Iinheritdoc MigrationHelper
   function getMigrationSupply(address asset, uint256 amount)
     external
     view

@@ -42,12 +42,14 @@ interface IMigrationHelper is IFlashLoanReceiver {
     address to;
   }
 
-  // @dev Method to do migration of positions which require repayment. Migrating whole amount of specified assets
-  // @param assetsToMigrate - list of assets to migrate
-  // @param positionsToRepay - list of assets to be repayed
-  // @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
-  // @param creditDelegationPermits - list of EIP712 signatures (credit delegations) for v3 variable debt token
-  // check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
+  /**
+   * @dev Method to do migration of positions which require repayment. Migrating whole amount of specified assets
+   * @param assetsToMigrate - list of assets to migrate
+   * @param positionsToRepay - list of assets to be repayed
+   * @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
+   * @param creditDelegationPermits - list of EIP712 signatures (credit delegations) for v3 variable debt token
+   * check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
+   **/
   function migrate(
     address[] memory assetsToMigrate,
     RepaySimpleInput[] memory positionsToRepay,
@@ -55,13 +57,28 @@ interface IMigrationHelper is IFlashLoanReceiver {
     CreditDelegationInput[] memory creditDelegationPermits
   ) external;
 
-  // @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
+  /**
+   * @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
+   **/
   function cacheATokens() external;
+
+  /**
+   * @dev method to get asset and amout to be suplied to V3
+   * @param asset the v2 pool asset
+   * @param amount origin amount
+   * @return address asset to be supplied to the v3 pool
+   * @return uint256 amount to be supplied to the v3 pool
+   */
+  function getMigrationSupply(address asset, uint256 amount)
+    external
+    returns (address, uint256);
 
   function V2_POOL() external returns (IV2LendingPool);
 
-  // @dev public method for rescue funds in case of a wrong transfer
-  // @param emergencyInput - array of parameters to transfer out funds
+  /**
+   * @dev public method for rescue funds in case of a wrong transfer
+   * @param emergencyInput - array of parameters to transfer out funds
+   **/
   function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
     external;
 }
