@@ -159,6 +159,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   //@Iinheritdoc IMigrationHelper
   function getMigrationSupply(address asset, uint256 amount)
     external
+    view
     virtual
     returns (address, uint256)
   {

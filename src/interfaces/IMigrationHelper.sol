@@ -63,7 +63,7 @@ interface IMigrationHelper is IFlashLoanReceiver {
   function cacheATokens() external;
 
   /**
-   * @dev method to get asset and amout to be suplied to V3
+   * @dev method to get asset and amount to be supplied to V3
    * @param asset the v2 pool asset
    * @param amount origin amount
    * @return address asset to be supplied to the v3 pool
@@ -71,6 +71,7 @@ interface IMigrationHelper is IFlashLoanReceiver {
    */
   function getMigrationSupply(address asset, uint256 amount)
     external
+    view
     returns (address, uint256);
 
   function V2_POOL() external returns (IV2LendingPool);
