@@ -33,8 +33,10 @@ contract MigrationHelper is Ownable, IMigrationHelper {
    * @param v3AddressesProvider The address provider of the v3 pool
    * @param v2Pool The v2 pool
    */
-  constructor(IPoolAddressesProvider v3AddressesProvider, IV2LendingPool v2Pool)
-  {
+  constructor(
+    IPoolAddressesProvider v3AddressesProvider,
+    IV2LendingPool v2Pool
+  ) {
     ADDRESSES_PROVIDER = v3AddressesProvider;
     POOL = IPool(v3AddressesProvider.getPool());
     V2_POOL = v2Pool;
@@ -157,19 +159,18 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   }
 
   //@Iinheritdoc IMigrationHelper
-  function getMigrationSupply(address asset, uint256 amount)
-    external
-    view
-    virtual
-    returns (address, uint256)
-  {
+  function getMigrationSupply(
+    address asset,
+    uint256 amount
+  ) external view virtual returns (address, uint256) {
     return (asset, amount);
   }
 
   function _migrationNoBorrow(address user, address[] memory assets) internal {
     address asset;
     IERC20WithPermit aToken;
-    uint256 aTokenBalance;
+    uint256 aTokenAmountToMigrate;
+    uint256 aTokenBalanceAfterReceiving;
 
     for (uint256 i = 0; i < assets.length; i++) {
       asset = assets[i];
@@ -180,9 +181,23 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         'INVALID_OR_NOT_CACHED_ASSET'
       );
 
-      aTokenBalance = aToken.balanceOf(user);
-      aToken.safeTransferFrom(user, address(this), aTokenBalance);
-      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenBalance, address(this));
+      aTokenAmountToMigrate = aToken.balanceOf(user);
+      aToken.safeTransferFrom(user, address(this), aTokenAmountToMigrate);
+
+      // @dev this part of logic needed because of the possible 1-3 wei imprecision after aToken transfer, for example on stETH
+      aTokenBalanceAfterReceiving = aToken.balanceOf(address(this));
+      if (
+        aTokenAmountToMigrate != aTokenBalanceAfterReceiving &&
+        aTokenBalanceAfterReceiving <= aTokenAmountToMigrate + 2
+      ) {
+        aTokenAmountToMigrate = aTokenBalanceAfterReceiving;
+      }
+
+      uint256 withdrawn = V2_POOL.withdraw(
+        asset,
+        aTokenAmountToMigrate,
+        address(this)
+      );
 
       (address assetToSupply, uint256 amountToSupply) = _processSupply(
         asset,
@@ -193,15 +208,16 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  function _processSupply(address asset, uint256 amount)
-    internal
-    virtual
-    returns (address, uint256)
-  {
+  function _processSupply(
+    address asset,
+    uint256 amount
+  ) internal virtual returns (address, uint256) {
     return (asset, amount);
   }
 
-  function _getFlashloanParams(RepaySimpleInput[] memory positionsToRepay)
+  function _getFlashloanParams(
+    RepaySimpleInput[] memory positionsToRepay
+  )
     internal
     view
     returns (
@@ -273,10 +289,9 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     );
   }
 
-  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
-    external
-    onlyOwner
-  {
+  function rescueFunds(
+    EmergencyTransferInput[] calldata emergencyInput
+  ) external onlyOwner {
     for (uint256 i = 0; i < emergencyInput.length; i++) {
       emergencyInput[i].asset.safeTransfer(
         emergencyInput[i].to,
