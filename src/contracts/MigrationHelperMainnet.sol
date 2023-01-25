@@ -21,7 +21,7 @@ contract MigrationHelperMainnet is MigrationHelper {
 
   constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2Ethereum.POOL) {
     STETH.safeApprove(address(WSTETH), type(uint256).max);
-    WSTETH.safeApprove(address(AaveV2Ethereum.POOL), type(uint256).max);
+    WSTETH.safeApprove(address(AaveV3Ethereum.POOL), type(uint256).max);
   }
 
   //@Iinheritdoc MigrationHelper
