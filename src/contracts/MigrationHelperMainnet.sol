@@ -16,8 +16,7 @@ contract MigrationHelperMainnet is MigrationHelper {
 
   IERC20WithPermit public constant STETH =
     IERC20WithPermit(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
-  IWstETH public constant WSTETH =
-    IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+  IWstETH public constant WSTETH = IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
   constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2Ethereum.POOL) {
     STETH.safeApprove(address(WSTETH), type(uint256).max);
@@ -39,10 +38,7 @@ contract MigrationHelperMainnet is MigrationHelper {
   }
 
   // @dev stETH is being wrapped to supply wstETH to the v3 pool
-  function _preSupply(
-    address asset,
-    uint256 amount
-  ) internal override returns (address, uint256) {
+  function _preSupply(address asset, uint256 amount) internal override returns (address, uint256) {
     if (asset == address(STETH)) {
       uint256 wrappedAmount = WSTETH.wrap(amount);
 

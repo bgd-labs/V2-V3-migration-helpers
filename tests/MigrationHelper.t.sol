@@ -35,10 +35,7 @@ contract MigrationHelperTest is Test {
 
   function setUp() public {
     vm.createSelectFork(vm.rpcUrl('polygon'), 33920076);
-    migrationHelper = new MigrationHelper(
-      AaveV3Polygon.POOL,
-      AaveV2Polygon.POOL
-    );
+    migrationHelper = new MigrationHelper(AaveV3Polygon.POOL, AaveV2Polygon.POOL);
 
     v2DataProvider = AaveV2Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
     v3DataProvider = AaveV3Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
@@ -69,13 +66,10 @@ contract MigrationHelperTest is Test {
 
   function testCacheATokens() public {
     for (uint256 i = 0; i < v2Reserves.length; i++) {
-      DataTypesV2.ReserveData memory reserveData = migrationHelper
-        .V2_POOL()
-        .getReserveData(v2Reserves[i]);
-      assertEq(
-        address(migrationHelper.aTokens(v2Reserves[i])),
-        reserveData.aTokenAddress
+      DataTypesV2.ReserveData memory reserveData = migrationHelper.V2_POOL().getReserveData(
+        v2Reserves[i]
       );
+      assertEq(address(migrationHelper.aTokens(v2Reserves[i])), reserveData.aTokenAddress);
 
       uint256 allowanceToPoolV2 = IERC20(v2Reserves[i]).allowance(
         address(migrationHelper),
@@ -98,11 +92,7 @@ contract MigrationHelperTest is Test {
 
     for (uint256 i = 0; i < usersSimple.length; i++) {
       // get positions
-      (
-        suppliedPositions,
-        suppliedBalances,
-        borrowedPositions
-      ) = _getV2UserPosition(usersSimple[i]);
+      (suppliedPositions, suppliedBalances, borrowedPositions) = _getV2UserPosition(usersSimple[i]);
 
       require(
         borrowedPositions.length == 0 && suppliedPositions.length != 0,
@@ -129,11 +119,7 @@ contract MigrationHelperTest is Test {
       vm.stopPrank();
 
       // check that positions were migrated successfully
-      _checkMigratedSupplies(
-        usersSimple[i],
-        suppliedPositions,
-        suppliedBalances
-      );
+      _checkMigratedSupplies(usersSimple[i], suppliedPositions, suppliedBalances);
     }
   }
 
@@ -141,11 +127,9 @@ contract MigrationHelperTest is Test {
     (address user, uint256 privateKey) = _getUserWithPosition();
 
     // get positions
-    (
-      address[] memory suppliedPositions,
-      uint256[] memory suppliedBalances,
-
-    ) = _getV2UserPosition(user);
+    (address[] memory suppliedPositions, uint256[] memory suppliedBalances, ) = _getV2UserPosition(
+      user
+    );
 
     // calculate permits
     IMigrationHelper.PermitInput[] memory permits = _getPermits(
@@ -180,10 +164,9 @@ contract MigrationHelperTest is Test {
       IMigrationHelper.RepayInput[] memory positionsToRepay
     ) = _getV2UserPosition(user);
 
-    IMigrationHelper.RepaySimpleInput[]
-      memory positionsToRepaySimple = _getSimplePositionsToRepay(
-        positionsToRepay
-      );
+    IMigrationHelper.RepaySimpleInput[] memory positionsToRepaySimple = _getSimplePositionsToRepay(
+      positionsToRepay
+    );
 
     // calculate permits
     IMigrationHelper.PermitInput[] memory permits = _getPermits(
@@ -194,22 +177,16 @@ contract MigrationHelperTest is Test {
     );
 
     // calculate credit
-    IMigrationHelper.CreditDelegationInput[]
-      memory creditDelegations = _getCreditDelegations(
-        user,
-        privateKey,
-        positionsToRepay
-      );
+    IMigrationHelper.CreditDelegationInput[] memory creditDelegations = _getCreditDelegations(
+      user,
+      privateKey,
+      positionsToRepay
+    );
 
     // migrate positions to V3
     vm.startPrank(user);
 
-    migrationHelper.migrate(
-      suppliedPositions,
-      positionsToRepaySimple,
-      permits,
-      creditDelegations
-    );
+    migrationHelper.migrate(suppliedPositions, positionsToRepaySimple, permits, creditDelegations);
 
     vm.stopPrank();
 
@@ -225,8 +202,10 @@ contract MigrationHelperTest is Test {
     uint256[] memory suppliedBalances
   ) internal {
     for (uint256 i = 0; i < suppliedPositions.length; i++) {
-      (uint256 currentATokenBalance, , , , , , , , ) = v3DataProvider
-        .getUserReserveData(suppliedPositions[i], user);
+      (uint256 currentATokenBalance, , , , , , , , ) = v3DataProvider.getUserReserveData(
+        suppliedPositions[i],
+        user
+      );
 
       assertTrue(currentATokenBalance >= suppliedBalances[i]);
     }
@@ -237,8 +216,10 @@ contract MigrationHelperTest is Test {
     IMigrationHelper.RepayInput[] memory borrowedPositions
   ) internal {
     for (uint256 i = 0; i < borrowedPositions.length; i++) {
-      (, , uint256 currentVariableDebt, , , , , , ) = v3DataProvider
-        .getUserReserveData(borrowedPositions[i].asset, user);
+      (, , uint256 currentVariableDebt, , , , , , ) = v3DataProvider.getUserReserveData(
+        borrowedPositions[i].asset,
+        user
+      );
 
       assertTrue(currentVariableDebt >= borrowedPositions[i].amount);
     }
@@ -249,20 +230,15 @@ contract MigrationHelperTest is Test {
   )
     internal
     view
-    returns (
-      address[] memory,
-      uint256[] memory,
-      IMigrationHelper.RepayInput[] memory
-    )
+    returns (address[] memory, uint256[] memory, IMigrationHelper.RepayInput[] memory)
   {
     uint256 numberOfSupplied;
     uint256 numberOfBorrowed;
     address[] memory suppliedPositions = new address[](v2Reserves.length);
     uint256[] memory suppliedBalances = new uint256[](v2Reserves.length);
-    IMigrationHelper.RepayInput[]
-      memory borrowedPositions = new IMigrationHelper.RepayInput[](
-        v2Reserves.length * 2
-      );
+    IMigrationHelper.RepayInput[] memory borrowedPositions = new IMigrationHelper.RepayInput[](
+      v2Reserves.length * 2
+    );
     for (uint256 i = 0; i < v2Reserves.length; i++) {
       (
         uint256 currentATokenBalance,
@@ -330,9 +306,7 @@ contract MigrationHelperTest is Test {
   ) internal returns (address[] memory, uint256[] memory, uint256[] memory) {
     address[] memory borrowedAssets = new address[](borrowedPositions.length);
     uint256[] memory borrowedAmounts = new uint256[](borrowedPositions.length);
-    uint256[] memory interestRateModes = new uint256[](
-      borrowedPositions.length
-    );
+    uint256[] memory interestRateModes = new uint256[](borrowedPositions.length);
     uint256 index = 0;
 
     for (uint256 i = 0; i < borrowedPositions.length; i++) {
@@ -416,10 +390,9 @@ contract MigrationHelperTest is Test {
     address[] memory suppliedPositions,
     uint256[] memory suppliedBalances
   ) internal returns (IMigrationHelper.PermitInput[] memory) {
-    IMigrationHelper.PermitInput[]
-      memory permits = new IMigrationHelper.PermitInput[](
-        suppliedPositions.length
-      );
+    IMigrationHelper.PermitInput[] memory permits = new IMigrationHelper.PermitInput[](
+      suppliedPositions.length
+    );
 
     for (uint256 i = 0; i < suppliedPositions.length; i++) {
       IERC20WithPermit token = migrationHelper.aTokens(suppliedPositions[i]);
@@ -432,10 +405,7 @@ contract MigrationHelperTest is Test {
         deadline: type(uint256).max
       });
 
-      bytes32 digest = sigUtils.getPermitTypedDataHash(
-        permit,
-        token.DOMAIN_SEPARATOR()
-      );
+      bytes32 digest = sigUtils.getPermitTypedDataHash(permit, token.DOMAIN_SEPARATOR());
 
       (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -463,29 +433,24 @@ contract MigrationHelperTest is Test {
       );
 
     // calculate params for v3 credit delegation
-    (
-      address[] memory borrowedAssets,
-      uint256[] memory borrowedAmounts,
-
-    ) = _getFlashloanParams(positionsToRepay);
+    (address[] memory borrowedAssets, uint256[] memory borrowedAmounts, ) = _getFlashloanParams(
+      positionsToRepay
+    );
 
     for (uint256 i = 0; i < borrowedAssets.length; i++) {
       // get v3 variable debt token
-      DataTypes.ReserveData memory reserveData = migrationHelper
-        .V3_POOL()
-        .getReserveData(borrowedAssets[i]);
-
-      IERC20WithPermit token = IERC20WithPermit(
-        reserveData.variableDebtTokenAddress
+      DataTypes.ReserveData memory reserveData = migrationHelper.V3_POOL().getReserveData(
+        borrowedAssets[i]
       );
 
-      SigUtils.CreditDelegation memory creditDelegation = SigUtils
-        .CreditDelegation({
-          delegatee: address(migrationHelper),
-          value: borrowedAmounts[i],
-          nonce: token.nonces(user),
-          deadline: type(uint256).max
-        });
+      IERC20WithPermit token = IERC20WithPermit(reserveData.variableDebtTokenAddress);
+
+      SigUtils.CreditDelegation memory creditDelegation = SigUtils.CreditDelegation({
+        delegatee: address(migrationHelper),
+        value: borrowedAmounts[i],
+        nonce: token.nonces(user),
+        deadline: type(uint256).max
+      });
 
       bytes32 digest = sigUtils.getCreditDelegationTypedDataHash(
         creditDelegation,

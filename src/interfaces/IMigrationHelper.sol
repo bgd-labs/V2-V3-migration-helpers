@@ -101,7 +101,5 @@ interface IMigrationHelper {
    * @dev public method for rescue funds in case of a wrong transfer
    * @param emergencyInput - array of parameters to transfer out funds
    **/
-  function rescueFunds(
-    EmergencyTransferInput[] calldata emergencyInput
-  ) external;
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput) external;
 }

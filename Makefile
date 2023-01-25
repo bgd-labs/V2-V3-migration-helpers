@@ -11,4 +11,4 @@ test   :; forge test -vvv
 
 deploy-avalanche :; forge script scripts/MigrationHelperAvalanche.s.sol:Deploy --rpc-url avalanche --broadcast --ledger --mnemonic-indexes ${MNEMONIC_INDEX} --sender ${LEDGER_SENDER} --verify -vvvv
 deploy-polygon :; forge script scripts/MigrationHelperPolygon.s.sol:Deploy --rpc-url polygon --broadcast --ledger --mnemonic-indexes ${MNEMONIC_INDEX} --sender ${LEDGER_SENDER} --verify -vvvv
-deploy-ethereum :; forge script scripts/MigrationHelperMainnet.s.sol:Deploy --rpc-url ethereum --broadcast --ledger --mnemonic-indexes ${MNEMONIC_INDEX} --sender ${LEDGER_SENDER} --verify -vvvv
+deploy-mainnet :; forge script scripts/MigrationHelperMainnet.s.sol:Deploy --rpc-url mainnet --broadcast --ledger --mnemonic-indexes ${MNEMONIC_INDEX} --sender ${LEDGER_SENDER} --verify -vvvv

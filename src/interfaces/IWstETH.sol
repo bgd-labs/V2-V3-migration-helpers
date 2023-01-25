@@ -6,7 +6,5 @@ import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IE
 interface IWstETH is IERC20WithPermit {
   function wrap(uint256 stETHAmount) external returns (uint256);
 
-  function getWstETHByStETH(
-    uint256 stETHAmount
-  ) external view returns (uint256);
+  function getWstETHByStETH(uint256 stETHAmount) external view returns (uint256);
 }

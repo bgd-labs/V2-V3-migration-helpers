@@ -1,23 +1,22 @@
-import { ethers } from "ethers";
+import {ethers} from 'ethers';
 import {
   IMigrationHelper__factory,
   MigrationHelper__factory,
   MigrationHelperMainnet__factory,
-} from "./typechain";
+} from './typechain';
 
-const PK = "0x4427668afd0c5fb2cfef65580997ecc9dcf3edf9a82f9ffa72b3a00f1a43165a";
-const RPC_ADDRESS =
-  "https://rpc.tenderly.co/fork/a7bc5061-f9f6-42e6-8cc8-2fa94014851a";
+const PK = '0x4427668afd0c5fb2cfef65580997ecc9dcf3edf9a82f9ffa72b3a00f1a43165a';
+const RPC_ADDRESS = 'https://rpc.tenderly.co/fork/a7bc5061-f9f6-42e6-8cc8-2fa94014851a';
 
 (async function exec() {
   // mainnet
   await deploy(
     MigrationHelperMainnet__factory,
     // "https://rpc.tenderly.co/fork/a7bc5061-f9f6-42e6-8cc8-2fa94014851a", // our
-    "https://rpc.tenderly.co/fork/56cc267e-fefa-42f0-8400-3d89410d6da5", // aave co
-    "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
-    "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
-    "0x6b175474e89094c44da98b954eedeac495271d0f"
+    'https://rpc.tenderly.co/fork/56cc267e-fefa-42f0-8400-3d89410d6da5', // aave co
+    '0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e',
+    '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
+    '0x6b175474e89094c44da98b954eedeac495271d0f'
   );
   //avalanche
   // await deploy(
@@ -38,29 +37,21 @@ const RPC_ADDRESS =
 })();
 
 async function deploy(
-  factory:
-    | typeof MigrationHelperMainnet__factory
-    | typeof MigrationHelper__factory,
+  factory: typeof MigrationHelperMainnet__factory | typeof MigrationHelper__factory,
   rpc: string,
   v3AddressesProvider: string,
   v2Pool: string,
   testAsset: string
 ): Promise<string> {
-  const helper = new factory(
-    new ethers.Wallet(PK, new ethers.providers.JsonRpcProvider(rpc))
-  );
+  const helper = new factory(new ethers.Wallet(PK, new ethers.providers.JsonRpcProvider(rpc)));
   const contract = await helper.deploy(v3AddressesProvider, v2Pool);
   const contractAddress = contract.address;
-  console.log("Contract Address is", contractAddress);
+  console.log('Contract Address is', contractAddress);
   await check(rpc, contractAddress, testAsset);
   return contractAddress;
 }
 
-async function check(
-  rpc: string,
-  address: string,
-  testAsset: string
-): Promise<void> {
+async function check(rpc: string, address: string, testAsset: string): Promise<void> {
   const helper = IMigrationHelper__factory.connect(
     address,
     new ethers.providers.JsonRpcProvider(rpc)

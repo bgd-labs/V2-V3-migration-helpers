@@ -45,21 +45,11 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       if (address(aTokens[reserves[i]]) == address(0)) {
         reserveData = V2_POOL.getReserveData(reserves[i]);
         aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
-        vTokens[reserves[i]] = IERC20WithPermit(
-          reserveData.variableDebtTokenAddress
-        );
-        sTokens[reserves[i]] = IERC20WithPermit(
-          reserveData.stableDebtTokenAddress
-        );
+        vTokens[reserves[i]] = IERC20WithPermit(reserveData.variableDebtTokenAddress);
+        sTokens[reserves[i]] = IERC20WithPermit(reserveData.stableDebtTokenAddress);
 
-        IERC20WithPermit(reserves[i]).safeApprove(
-          address(V2_POOL),
-          type(uint256).max
-        );
-        IERC20WithPermit(reserves[i]).safeApprove(
-          address(V3_POOL),
-          type(uint256).max
-        );
+        IERC20WithPermit(reserves[i]).safeApprove(address(V2_POOL), type(uint256).max);
+        IERC20WithPermit(reserves[i]).safeApprove(address(V3_POOL), type(uint256).max);
       }
     }
   }
@@ -132,11 +122,8 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     require(msg.sender == address(V3_POOL), 'ONLY_V3_POOL_ALLOWED');
     require(initiator == address(this), 'ONLY_INITIATED_BY_MIGRATION_HELPER');
 
-    (
-      address[] memory assetsToMigrate,
-      RepayInput[] memory positionsToRepay,
-      address user
-    ) = abi.decode(params, (address[], RepayInput[], address));
+    (address[] memory assetsToMigrate, RepayInput[] memory positionsToRepay, address user) = abi
+      .decode(params, (address[], RepayInput[], address));
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
       V2_POOL.repay(
@@ -170,10 +157,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       asset = assets[i];
       aToken = aTokens[asset];
 
-      require(
-        asset != address(0) && address(aToken) != address(0),
-        'INVALID_OR_NOT_CACHED_ASSET'
-      );
+      require(asset != address(0) && address(aToken) != address(0), 'INVALID_OR_NOT_CACHED_ASSET');
 
       aTokenAmountToMigrate = aToken.balanceOf(user);
       aToken.safeTransferFrom(user, address(this), aTokenAmountToMigrate);
@@ -187,26 +171,16 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         aTokenAmountToMigrate = aTokenBalanceAfterReceiving;
       }
 
-      uint256 withdrawn = V2_POOL.withdraw(
-        asset,
-        aTokenAmountToMigrate,
-        address(this)
-      );
+      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenAmountToMigrate, address(this));
 
       // @dev there are cases when we transform asset before supplying it to v3
-      (address assetToSupply, uint256 amountToSupply) = _preSupply(
-        asset,
-        withdrawn
-      );
+      (address assetToSupply, uint256 amountToSupply) = _preSupply(asset, withdrawn);
 
       V3_POOL.supply(assetToSupply, amountToSupply, user, 0);
     }
   }
 
-  function _preSupply(
-    address asset,
-    uint256 amount
-  ) internal virtual returns (address, uint256) {
+  function _preSupply(address asset, uint256 amount) internal virtual returns (address, uint256) {
     return (asset, amount);
   }
 
@@ -215,23 +189,14 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   )
     internal
     view
-    returns (
-      RepayInput[] memory,
-      address[] memory,
-      uint256[] memory,
-      uint256[] memory
-    )
+    returns (RepayInput[] memory, address[] memory, uint256[] memory, uint256[] memory)
   {
-    RepayInput[] memory positionsToRepayWithAmounts = new RepayInput[](
-      positionsToRepay.length
-    );
+    RepayInput[] memory positionsToRepayWithAmounts = new RepayInput[](positionsToRepay.length);
 
     uint256 numberOfAssetsToFlash;
     address[] memory assetsToFlash = new address[](positionsToRepay.length);
     uint256[] memory amountsToFlash = new uint256[](positionsToRepay.length);
-    uint256[] memory interestRatesToFlash = new uint256[](
-      positionsToRepay.length
-    );
+    uint256[] memory interestRatesToFlash = new uint256[](positionsToRepay.length);
 
     for (uint256 i = 0; i < positionsToRepay.length; i++) {
       IERC20WithPermit debtToken = positionsToRepay[i].rateMode == 2
@@ -258,10 +223,8 @@ contract MigrationHelper is Ownable, IMigrationHelper {
 
       // if this is the first ocurance of the asset add it
       if (!amountIncludedIntoFlash) {
-        assetsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
-          .asset;
-        amountsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i]
-          .amount;
+        assetsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i].asset;
+        amountsToFlash[numberOfAssetsToFlash] = positionsToRepayWithAmounts[i].amount;
         interestRatesToFlash[numberOfAssetsToFlash] = 2; // @dev variable debt
 
         ++numberOfAssetsToFlash;
@@ -276,22 +239,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       mstore(interestRatesToFlash, numberOfAssetsToFlash)
     }
 
-    return (
-      positionsToRepayWithAmounts,
-      assetsToFlash,
-      amountsToFlash,
-      interestRatesToFlash
-    );
+    return (positionsToRepayWithAmounts, assetsToFlash, amountsToFlash, interestRatesToFlash);
   }
 
-  function rescueFunds(
-    EmergencyTransferInput[] calldata emergencyInput
-  ) external onlyOwner {
+  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput) external onlyOwner {
     for (uint256 i = 0; i < emergencyInput.length; i++) {
-      emergencyInput[i].asset.safeTransfer(
-        emergencyInput[i].to,
-        emergencyInput[i].amount
-      );
+      emergencyInput[i].asset.safeTransfer(emergencyInput[i].to, emergencyInput[i].amount);
     }
   }
 }
