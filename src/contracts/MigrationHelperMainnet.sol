@@ -10,6 +10,12 @@ import {AaveV3Ethereum} from 'aave-address-book/AaveV3Ethereum.sol';
 import {IWstETH} from '../interfaces/IWstETH.sol';
 import {MigrationHelper} from './MigrationHelper.sol';
 
+/**
+ * @title MigrationHelperMainnet
+ * @author BGD Labs
+ * @dev Contract to migrate positions from Aave v2 to Aave v3 Ethereum Mainnet pools
+ *   wraps stETH to wStETH to make it compatible
+ */
 contract MigrationHelperMainnet is MigrationHelper {
   using SafeERC20 for IERC20WithPermit;
   using SafeERC20 for IWstETH;
@@ -23,7 +29,7 @@ contract MigrationHelperMainnet is MigrationHelper {
     WSTETH.safeApprove(address(AaveV3Ethereum.POOL), type(uint256).max);
   }
 
-  //@Iinheritdoc MigrationHelper
+  /// @inheritdoc MigrationHelper
   function getMigrationSupply(
     address asset,
     uint256 amount
@@ -37,7 +43,7 @@ contract MigrationHelperMainnet is MigrationHelper {
     return (asset, amount);
   }
 
-  // @dev stETH is being wrapped to supply wstETH to the v3 pool
+  /// @dev stETH is being wrapped to supply wstETH to the v3 pool
   function _preSupply(address asset, uint256 amount) internal override returns (address, uint256) {
     if (asset == address(STETH)) {
       uint256 wrappedAmount = WSTETH.wrap(amount);

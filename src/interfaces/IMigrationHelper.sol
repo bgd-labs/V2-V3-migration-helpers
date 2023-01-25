@@ -7,6 +7,11 @@ import {IPool as IV3Pool} from 'aave-address-book/AaveV3.sol';
 
 import {ICreditDelegationToken} from './ICreditDelegationToken.sol';
 
+/**
+ * @title IMigrationHelper
+ * @author BGD Labs
+ * @notice Defines the interface for the contract to migrate positions from Aave v2 to Aave v3 pool
+ **/
 interface IMigrationHelper {
   struct PermitInput {
     IERC20WithPermit aToken;
@@ -16,6 +21,7 @@ interface IMigrationHelper {
     bytes32 r;
     bytes32 s;
   }
+
   struct CreditDelegationInput {
     ICreditDelegationToken debtToken;
     uint256 value;
@@ -43,12 +49,12 @@ interface IMigrationHelper {
   }
 
   /**
-   * @dev Method to do migration of positions which require repayment. Migrating whole amount of specified assets
+   * @notice Method to do migration of any types of positions. Migrating whole amount of specified assets
    * @param assetsToMigrate - list of assets to migrate
    * @param positionsToRepay - list of assets to be repayed
    * @param permits - list of EIP712 permits, can be empty, if approvals provided in advance
    * @param creditDelegationPermits - list of EIP712 signatures (credit delegations) for v3 variable debt token
-   * check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
+   * @dev check more details about permit at PermitInput and /solidity-utils/contracts/oz-common/interfaces/draft-IERC20Permit.sol
    **/
   function migrate(
     address[] memory assetsToMigrate,
@@ -77,12 +83,12 @@ interface IMigrationHelper {
   ) external returns (bool);
 
   /**
-   * @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
+   * @notice Public method to optimize the gas costs, to avoid having getReserveData calls on every execution
    **/
   function cacheATokens() external;
 
   /**
-   * @dev method to get asset and amount to be supplied to V3
+   * @notice Method to get asset and amount to be supplied to V3
    * @param asset the v2 pool asset
    * @param amount origin amount
    * @return address asset to be supplied to the v3 pool
@@ -93,12 +99,14 @@ interface IMigrationHelper {
     uint256 amount
   ) external view returns (address, uint256);
 
+  /// @notice The source pool
   function V2_POOL() external returns (IV2Pool);
 
+  /// @notice The destination pool
   function V3_POOL() external returns (IV3Pool);
 
   /**
-   * @dev public method for rescue funds in case of a wrong transfer
+   * @notice Public method for rescue funds in case of a wrong transfer
    * @param emergencyInput - array of parameters to transfer out funds
    **/
   function rescueFunds(EmergencyTransferInput[] calldata emergencyInput) external;

@@ -10,16 +10,17 @@ import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
 
 /**
+ * @title MigrationHelper
  * @author BGD Labs
  * @dev Contract to migrate positions from Aave v2 to Aave v3 pool
  */
 contract MigrationHelper is Ownable, IMigrationHelper {
   using SafeERC20 for IERC20WithPermit;
 
-  // @dev the source pool
+  /// @inheritdoc IMigrationHelper
   IV2Pool public immutable V2_POOL;
 
-  // @dev the destination pool
+  /// @inheritdoc IMigrationHelper
   IV3Pool public immutable V3_POOL;
 
   mapping(address => IERC20WithPermit) public aTokens;
@@ -37,7 +38,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     cacheATokens();
   }
 
-  //@Iinheritdoc IMigrationHelper
+  /// @inheritdoc IMigrationHelper
   function cacheATokens() public {
     DataTypes.ReserveData memory reserveData;
     address[] memory reserves = V2_POOL.getReservesList();
@@ -54,7 +55,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  //@Iinheritdoc IMigrationHelper
+  /// @inheritdoc IMigrationHelper
   function migrate(
     address[] memory assetsToMigrate,
     RepaySimpleInput[] memory positionsToRepay,
@@ -107,11 +108,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  /* @Iinheritdoc IMigrationHelper
-   * expected structure of the params:
+  /**
+   * @dev expected structure of the params:
    *    assetsToMigrate - the list of supplied assets to migrate
    *    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
    *    beneficiary - the user who requested the migration
+    @inheritdoc IMigrationHelper
    */
   function executeOperation(
     address[] calldata,
@@ -140,7 +142,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     return true;
   }
 
-  //@Iinheritdoc IMigrationHelper
+  /// @inheritdoc IMigrationHelper
   function getMigrationSupply(
     address asset,
     uint256 amount
@@ -163,7 +165,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       aTokenAmountToMigrate = aToken.balanceOf(user);
       aToken.safeTransferFrom(user, address(this), aTokenAmountToMigrate);
 
-      // @dev this part of logic needed because of the possible 1-3 wei imprecision after aToken transfer, for example on stETH
+      // this part of logic needed because of the possible 1-3 wei imprecision after aToken transfer, for example on stETH
       aTokenBalanceAfterReceiving = aToken.balanceOf(address(this));
       if (
         aTokenAmountToMigrate != aTokenBalanceAfterReceiving &&
@@ -174,7 +176,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
 
       uint256 withdrawn = V2_POOL.withdraw(asset, aTokenAmountToMigrate, address(this));
 
-      // @dev there are cases when we transform asset before supplying it to v3
+      // there are cases when we transform asset before supplying it to v3
       (address assetToSupply, uint256 amountToSupply) = _preSupply(asset, withdrawn);
 
       V3_POOL.supply(assetToSupply, amountToSupply, user, 0);
@@ -243,6 +245,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     return (positionsToRepayWithAmounts, assetsToFlash, amountsToFlash, interestRatesToFlash);
   }
 
+  /// @inheritdoc IMigrationHelper
   function rescueFunds(EmergencyTransferInput[] calldata emergencyInput) external onlyOwner {
     for (uint256 i = 0; i < emergencyInput.length; i++) {
       emergencyInput[i].asset.safeTransfer(emergencyInput[i].to, emergencyInput[i].amount);

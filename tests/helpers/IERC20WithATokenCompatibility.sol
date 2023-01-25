@@ -5,7 +5,7 @@ import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IE
 
 interface IERC20WithATokenCompatibility is IERC20WithPermit {
   /**
-   * @dev Returns the current nonce for `owner`. This value must be
+   * @notice Returns the current nonce for `owner`. This value must be
    * included whenever a signature is generated for {permit}.
    *
    * Added for compatibility with V2 ATokens
