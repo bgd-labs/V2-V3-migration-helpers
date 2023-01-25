@@ -39,6 +39,7 @@ contract MigrationHelperMainnet is MigrationHelper {
     return (asset, amount);
   }
 
+  // stETH is being wrapped to supply wstETH to the v3 pool
   function _processSupply(
     address asset,
     uint256 amount

@@ -199,6 +199,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         address(this)
       );
 
+      // there are cases when we transform asset before supplying it to v3
       (address assetToSupply, uint256 amountToSupply) = _processSupply(
         asset,
         withdrawn
