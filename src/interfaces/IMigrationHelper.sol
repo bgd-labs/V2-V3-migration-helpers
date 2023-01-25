@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
-import {ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
+import {ILendingPool as IV2Pool} from 'aave-address-book/AaveV2.sol';
+import {IPool as IV3Pool} from 'aave-address-book/AaveV3.sol';
 
-import {IFlashLoanReceiver} from './IFlashLoanReceiver.sol';
 import {ICreditDelegationToken} from './ICreditDelegationToken.sol';
 
-interface IMigrationHelper is IFlashLoanReceiver {
+interface IMigrationHelper {
   struct PermitInput {
     IERC20WithPermit aToken;
     uint256 value;
@@ -58,6 +58,25 @@ interface IMigrationHelper is IFlashLoanReceiver {
   ) external;
 
   /**
+   * @notice Executes an operation after receiving the flash-borrowed assets
+   * @dev Ensure that the contract can return the debt + premium, e.g., has
+   *      enough funds to repay and has approved the Pool to pull the total amount
+   * @param assets The addresses of the flash-borrowed assets
+   * @param amounts The amounts of the flash-borrowed assets
+   * @param premiums The fee of each flash-borrowed asset
+   * @param initiator The address of the flashloan initiator
+   * @param params The byte-encoded params passed when initiating the flashloan
+   * @return True if the execution of the operation succeeds, false otherwise
+   */
+  function executeOperation(
+    address[] calldata assets,
+    uint256[] calldata amounts,
+    uint256[] calldata premiums,
+    address initiator,
+    bytes calldata params
+  ) external returns (bool);
+
+  /**
    * @dev public method to optimize the gas costs, to avoid having getReserveData calls on every execution
    **/
   function cacheATokens() external;
@@ -69,17 +88,20 @@ interface IMigrationHelper is IFlashLoanReceiver {
    * @return address asset to be supplied to the v3 pool
    * @return uint256 amount to be supplied to the v3 pool
    */
-  function getMigrationSupply(address asset, uint256 amount)
-    external
-    view
-    returns (address, uint256);
+  function getMigrationSupply(
+    address asset,
+    uint256 amount
+  ) external view returns (address, uint256);
 
-  function V2_POOL() external returns (IV2LendingPool);
+  function V2_POOL() external returns (IV2Pool);
+
+  function V3_POOL() external returns (IV3Pool);
 
   /**
    * @dev public method for rescue funds in case of a wrong transfer
    * @param emergencyInput - array of parameters to transfer out funds
    **/
-  function rescueFunds(EmergencyTransferInput[] calldata emergencyInput)
-    external;
+  function rescueFunds(
+    EmergencyTransferInput[] calldata emergencyInput
+  ) external;
 }

@@ -3,8 +3,8 @@ pragma solidity ^0.8.10;
 
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
 import {SafeERC20} from 'solidity-utils/contracts/oz-common/SafeERC20.sol';
-import {DataTypes, ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
-import {IPoolAddressesProvider, IPool} from 'aave-address-book/AaveV3.sol';
+import {DataTypes, ILendingPool as IV2Pool} from 'aave-address-book/AaveV2.sol';
+import {IPool as IV3Pool} from 'aave-address-book/AaveV3.sol';
 import {Ownable} from 'solidity-utils/contracts/oz-common/Ownable.sol';
 
 import {IMigrationHelper} from '../interfaces/IMigrationHelper.sol';
@@ -17,12 +17,10 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   using SafeERC20 for IERC20WithPermit;
 
   // @dev the source pool
-  IV2LendingPool public immutable V2_POOL;
+  IV2Pool public immutable V2_POOL;
 
   // @dev the destination pool
-  // naming for compatibility with IFlashloanReceiver
-  IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
-  IPool public immutable POOL;
+  IV3Pool public immutable V3_POOL;
 
   mapping(address => IERC20WithPermit) public aTokens;
   mapping(address => IERC20WithPermit) public vTokens;
@@ -30,15 +28,11 @@ contract MigrationHelper is Ownable, IMigrationHelper {
 
   /**
    * @notice Constructor.
-   * @param v3AddressesProvider The address provider of the v3 pool
+   * @param v3Pool The v3 pool
    * @param v2Pool The v2 pool
    */
-  constructor(
-    IPoolAddressesProvider v3AddressesProvider,
-    IV2LendingPool v2Pool
-  ) {
-    ADDRESSES_PROVIDER = v3AddressesProvider;
-    POOL = IPool(v3AddressesProvider.getPool());
+  constructor(IV3Pool v3Pool, IV2Pool v2Pool) {
+    V3_POOL = v3Pool;
     V2_POOL = v2Pool;
     cacheATokens();
   }
@@ -63,7 +57,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
           type(uint256).max
         );
         IERC20WithPermit(reserves[i]).safeApprove(
-          address(POOL),
+          address(V3_POOL),
           type(uint256).max
         );
       }
@@ -111,14 +105,14 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         uint256[] memory interestRatesToFlash
       ) = _getFlashloanParams(positionsToRepay);
 
-      POOL.flashLoan(
+      V3_POOL.flashLoan(
         address(this),
         assetsToFlash,
         amountsToFlash,
         interestRatesToFlash,
         msg.sender,
         abi.encode(assetsToMigrate, positionsToRepayWithAmounts, msg.sender),
-        0
+        6671
       );
     }
   }
@@ -135,7 +129,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     address initiator,
     bytes calldata params
   ) external returns (bool) {
-    require(msg.sender == address(POOL), 'ONLY_V3_POOL_ALLOWED');
+    require(msg.sender == address(V3_POOL), 'ONLY_V3_POOL_ALLOWED');
     require(initiator == address(this), 'ONLY_INITIATED_BY_MIGRATION_HELPER');
 
     (
@@ -199,17 +193,17 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         address(this)
       );
 
-      // there are cases when we transform asset before supplying it to v3
-      (address assetToSupply, uint256 amountToSupply) = _processSupply(
+      // @dev there are cases when we transform asset before supplying it to v3
+      (address assetToSupply, uint256 amountToSupply) = _preSupply(
         asset,
         withdrawn
       );
 
-      POOL.supply(assetToSupply, amountToSupply, user, 0);
+      V3_POOL.supply(assetToSupply, amountToSupply, user, 0);
     }
   }
 
-  function _processSupply(
+  function _preSupply(
     address asset,
     uint256 amount
   ) internal virtual returns (address, uint256) {

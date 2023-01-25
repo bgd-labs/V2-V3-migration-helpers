@@ -36,7 +36,7 @@ contract MigrationHelperTest is Test {
   function setUp() public {
     vm.createSelectFork(vm.rpcUrl('polygon'), 33920076);
     migrationHelper = new MigrationHelper(
-      AaveV3Polygon.POOL_ADDRESSES_PROVIDER,
+      AaveV3Polygon.POOL,
       AaveV2Polygon.POOL
     );
 
@@ -85,7 +85,7 @@ contract MigrationHelperTest is Test {
 
       uint256 allowanceToPool = IERC20(v2Reserves[i]).allowance(
         address(migrationHelper),
-        address(migrationHelper.POOL())
+        address(migrationHelper.V3_POOL())
       );
       assertEq(allowanceToPool, type(uint256).max);
     }
@@ -244,7 +244,9 @@ contract MigrationHelperTest is Test {
     }
   }
 
-  function _getV2UserPosition(address user)
+  function _getV2UserPosition(
+    address user
+  )
     internal
     view
     returns (
@@ -325,14 +327,7 @@ contract MigrationHelperTest is Test {
 
   function _getFlashloanParams(
     IMigrationHelper.RepayInput[] memory borrowedPositions
-  )
-    internal
-    returns (
-      address[] memory,
-      uint256[] memory,
-      uint256[] memory
-    )
-  {
+  ) internal returns (address[] memory, uint256[] memory, uint256[] memory) {
     address[] memory borrowedAssets = new address[](borrowedPositions.length);
     uint256[] memory borrowedAmounts = new uint256[](borrowedPositions.length);
     uint256[] memory interestRateModes = new uint256[](
@@ -420,7 +415,7 @@ contract MigrationHelperTest is Test {
     uint256 privateKey,
     address[] memory suppliedPositions,
     uint256[] memory suppliedBalances
-  ) internal returns (IMigrationHelper.PermitInput[] memory) {
+  ) internal view returns (IMigrationHelper.PermitInput[] memory) {
     IMigrationHelper.PermitInput[]
       memory permits = new IMigrationHelper.PermitInput[](
         suppliedPositions.length
@@ -477,7 +472,7 @@ contract MigrationHelperTest is Test {
     for (uint256 i = 0; i < borrowedAssets.length; i++) {
       // get v3 variable debt token
       DataTypes.ReserveData memory reserveData = migrationHelper
-        .POOL()
+        .V3_POOL()
         .getReserveData(borrowedAssets[i]);
 
       IERC20WithPermit token = IERC20WithPermit(

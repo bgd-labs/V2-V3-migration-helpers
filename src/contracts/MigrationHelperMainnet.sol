@@ -3,8 +3,10 @@ pragma solidity ^0.8.10;
 
 import {IERC20WithPermit} from 'solidity-utils/contracts/oz-common/interfaces/IERC20WithPermit.sol';
 import {SafeERC20} from 'solidity-utils/contracts/oz-common/SafeERC20.sol';
-import {ILendingPool as IV2LendingPool} from 'aave-address-book/AaveV2.sol';
-import {IPoolAddressesProvider} from 'aave-address-book/AaveV3.sol';
+
+import {AaveV2Ethereum} from 'aave-address-book/AaveV2Ethereum.sol';
+import {AaveV3Ethereum} from 'aave-address-book/AaveV3Ethereum.sol';
+
 import {IWstETH} from '../interfaces/IWstETH.sol';
 import {MigrationHelper} from './MigrationHelper.sol';
 
@@ -17,12 +19,9 @@ contract MigrationHelperMainnet is MigrationHelper {
   IWstETH public constant WSTETH =
     IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
-  constructor(
-    IPoolAddressesProvider v3AddressesProvider,
-    IV2LendingPool v2Pool
-  ) MigrationHelper(v3AddressesProvider, v2Pool) {
+  constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2Ethereum.POOL) {
     STETH.safeApprove(address(WSTETH), type(uint256).max);
-    WSTETH.safeApprove(address(POOL), type(uint256).max);
+    WSTETH.safeApprove(address(AaveV2Ethereum.POOL), type(uint256).max);
   }
 
   //@Iinheritdoc MigrationHelper
@@ -39,8 +38,8 @@ contract MigrationHelperMainnet is MigrationHelper {
     return (asset, amount);
   }
 
-  // stETH is being wrapped to supply wstETH to the v3 pool
-  function _processSupply(
+  // @dev stETH is being wrapped to supply wstETH to the v3 pool
+  function _preSupply(
     address asset,
     uint256 amount
   ) internal override returns (address, uint256) {

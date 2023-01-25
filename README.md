@@ -5,7 +5,7 @@ The contract is able to migrate both positions with supplies only and with dept.
 
 1. To migrate positions without debt use the `migrateNoBorow()` method. The user and the list of supplied positions must be passed; if each of the supplied assets is not approved for the MigrationHelper contract in advance, then the list of permits should be passed as well.
 
-2. Migration of the debt is based on the possibility of [AAVE flashloans](https://docs.aave.com/developers/guides/flash-loans) to be taken with variable debt mode. MigrationHelper contract implements [IFlashLoanReceiver](./src/interfaces/IFlashLoanReceiver.sol) interface to repay the the debt on v2 and migrate supplies to v3. Example of the position with the debt [is available in the tests](./tests/MigrationHelper.t.sol#L175).
+2. Migration of the debt is based on the possibility of [AAVE flashloans](https://docs.aave.com/developers/guides/flash-loans) to be taken with variable debt mode. MigrationHelper contract implements `executeOperation` method of [IFlashLoanSimpleReceiver](https://github.com/aave/aave-v3-core/blob/master/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol) interface to repay the debt on v2 and migrate supplies to v3. Example of the position with the debt [is available in the tests](./tests/MigrationHelper.t.sol#L175).
    The general flow of the migration is:
 
    - approve supplies for MigrationHelper or calculate permits
@@ -18,7 +18,9 @@ The contract is able to migrate both positions with supplies only and with dept.
 
 # Deployment
 
-[MigrationHelper.s.sol](./scripts/MigrationHelper.s.sol): This script will deploy the MigrationHelper initialized with V2 Pool and V3 Pool Address Provider.
+[MigrationHelperPolygon.s.sol](./scripts/MigrationHelperPolygon.s.sol): This script will deploy the MigrationHelper initialized with V3 Pool and V2 Pool on Polygon network.
+[MigrationHelperAvalanche.s.sol](./scripts/MigrationHelperAvalanche.s.sol): This script will deploy the MigrationHelper initialized with V3 Pool and V2 Pool on Avalanche network.
+[MigrationHelperMainnet.s.sol](./scripts/MigrationHelperMainnet.s.sol): This script will deploy the MigrationHelper initialized with V3 Pool and V2 Pool on Ethereum Mainnet network.
 
 # SetUp
 
