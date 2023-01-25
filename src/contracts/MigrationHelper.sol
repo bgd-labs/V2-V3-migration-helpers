@@ -107,11 +107,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     }
   }
 
-  //@Iinheritdoc IFlashLoanReceiver
-  // expected structure of the params:
-  //    assetsToMigrate - the list of supplied assets to migrate
-  //    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
-  //    beneficiary - the user who requested the migration
+  /* @Iinheritdoc IMigrationHelper
+   * expected structure of the params:
+   *    assetsToMigrate - the list of supplied assets to migrate
+   *    positionsToRepay - the list of borrowed positions, asset address, amount and debt type should be provided
+   *    beneficiary - the user who requested the migration
+   */
   function executeOperation(
     address[] calldata,
     uint256[] calldata,
