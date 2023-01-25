@@ -415,7 +415,7 @@ contract MigrationHelperTest is Test {
     uint256 privateKey,
     address[] memory suppliedPositions,
     uint256[] memory suppliedBalances
-  ) internal view returns (IMigrationHelper.PermitInput[] memory) {
+  ) internal returns (IMigrationHelper.PermitInput[] memory) {
     IMigrationHelper.PermitInput[]
       memory permits = new IMigrationHelper.PermitInput[](
         suppliedPositions.length
