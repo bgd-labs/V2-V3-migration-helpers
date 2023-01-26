@@ -179,7 +179,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
       // there are cases when we transform asset before supplying it to v3
       (address assetToSupply, uint256 amountToSupply) = _preSupply(asset, withdrawn);
 
-      V3_POOL.supply(assetToSupply, amountToSupply, user, 0);
+      V3_POOL.supply(assetToSupply, amountToSupply, user, 6671);
     }
   }
 
