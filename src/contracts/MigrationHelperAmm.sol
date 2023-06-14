@@ -8,7 +8,6 @@ import {AaveV2EthereumAMM, AaveV2EthereumAMMAssets} from 'aave-address-book/Aave
 import {AaveV3Ethereum} from 'aave-address-book/AaveV3Ethereum.sol';
 import {DataTypes, ILendingPool as IV2Pool} from 'aave-address-book/AaveV2.sol';
 
-import {IWstETH} from '../interfaces/IWstETH.sol';
 import {MigrationHelper} from './MigrationHelper.sol';
 
 /**
@@ -19,7 +18,6 @@ import {MigrationHelper} from './MigrationHelper.sol';
  */
 contract MigrationHelperAmm is MigrationHelper {
   using SafeERC20 for IERC20WithPermit;
-  using SafeERC20 for IWstETH;
 
   constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2EthereumAMM.POOL) {
   }
