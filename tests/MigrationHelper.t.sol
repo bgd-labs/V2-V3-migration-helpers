@@ -34,7 +34,7 @@ contract MigrationHelperTest is Test {
   mapping(address => uint256) private assetsIndex;
 
   function setUp() public {
-    vm.createSelectFork(vm.rpcUrl('polygon'), 33920076);
+    vm.createSelectFork(vm.rpcUrl('polygon'), 43899668);
     migrationHelper = new MigrationHelper(AaveV3Polygon.POOL, AaveV2Polygon.POOL);
 
     v2DataProvider = AaveV2Polygon.AAVE_PROTOCOL_DATA_PROVIDER;
@@ -44,11 +44,11 @@ contract MigrationHelperTest is Test {
     sigUtils = new SigUtils();
 
     // @dev users who has only supplied positions, no borrowings
-    usersSimple = new address[](17);
-    usersSimple[0] = 0x5FFAcBDaA5754224105879c03392ef9FE6ae0c17;
+    usersSimple = new address[](12);
+    usersSimple[0] = 0x2d0Df46399D654d88b5B95Ae9043f2AD6Ce6629e;
     usersSimple[1] = 0x5d3f81Ad171616571BF3119a3120E392B914Fd7C;
     usersSimple[2] = 0x07F294e84a9574f657A473f94A242F1FdFAFB823;
-    usersSimple[3] = 0x7734280A4337F37Fbf4651073Db7c28C80B339e9;
+    usersSimple[3] = 0xce5da4bebBA980BeC39da5b118750A47a23D4B85;
     usersSimple[4] = 0x000000003853FCeDcd0355feC98cA3192833F00b;
     usersSimple[5] = 0xbeC1101FF3f3474A3789Bb18A88117C169178d9F;
     usersSimple[6] = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
@@ -57,11 +57,6 @@ contract MigrationHelperTest is Test {
     usersSimple[9] = 0x0040a8fbD83A82c0742923C6802C3d9a22128d1c;
     usersSimple[10] = 0x00F63722233F5e19010e5daF208472A8F27D304B;
     usersSimple[11] = 0x114558d984bb24FDDa0CD279Ffd5F073F2d44F49;
-    usersSimple[12] = 0x17B23Be942458E6EfC17F000976A490EC428f49A;
-    usersSimple[13] = 0x7c0714297f15599E7430332FE45e45887d7Da341;
-    usersSimple[14] = 0x1776Fd7CCf75C889d62Cd03B5116342EB13268Bc;
-    usersSimple[15] = 0x53498839353845a30745b56a22524Df934F746dE;
-    usersSimple[16] = 0x3126ffE1334d892e0c53d8e2Fc83a605DcDCf037;
   }
 
   function testCacheATokens() public {
@@ -389,7 +384,7 @@ contract MigrationHelperTest is Test {
     uint256 privateKey,
     address[] memory suppliedPositions,
     uint256[] memory suppliedBalances
-  ) internal returns (IMigrationHelper.PermitInput[] memory) {
+  ) internal view returns (IMigrationHelper.PermitInput[] memory) {
     IMigrationHelper.PermitInput[] memory permits = new IMigrationHelper.PermitInput[](
       suppliedPositions.length
     );

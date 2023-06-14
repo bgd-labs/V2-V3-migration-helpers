@@ -41,7 +41,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   /// @inheritdoc IMigrationHelper
   function cacheATokens() public {
     DataTypes.ReserveData memory reserveData;
-    address[] memory reserves = V2_POOL.getReservesList();
+    address[] memory reserves = _getV2Reserves();
     for (uint256 i = 0; i < reserves.length; i++) {
       if (address(aTokens[reserves[i]]) == address(0)) {
         reserveData = V2_POOL.getReserveData(reserves[i]);
@@ -148,6 +148,12 @@ contract MigrationHelper is Ownable, IMigrationHelper {
     uint256 amount
   ) external view virtual returns (address, uint256) {
     return (asset, amount);
+  }
+
+  // helper method to get v2 reserves addresses for migration
+  // mostly needed to make overrides simpler on specific markets with many available reserves, but few valid
+  function _getV2Reserves() internal virtual returns (address[] memory) {
+    return V2_POOL.getReservesList();
   }
 
   function _migrationNoBorrow(address user, address[] memory assets) internal {
