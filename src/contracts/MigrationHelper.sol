@@ -39,7 +39,7 @@ contract MigrationHelper is Ownable, IMigrationHelper {
   }
 
   /// @inheritdoc IMigrationHelper
-  function cacheATokens() public {
+  function cacheATokens() public virtual {
     DataTypes.ReserveData memory reserveData;
     address[] memory reserves = V2_POOL.getReservesList();
     for (uint256 i = 0; i < reserves.length; i++) {
