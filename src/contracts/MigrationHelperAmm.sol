@@ -19,27 +19,16 @@ import {MigrationHelper} from './MigrationHelper.sol';
 contract MigrationHelperAmm is MigrationHelper {
   using SafeERC20 for IERC20WithPermit;
 
-  constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2EthereumAMM.POOL) {
-  }
+  constructor() MigrationHelper(AaveV3Ethereum.POOL, AaveV2EthereumAMM.POOL) {}
 
-  function cacheATokens() public virtual override {
-    DataTypes.ReserveData memory reserveData;
+  function _getV2Reserves() internal pure override returns (address[] memory) {
     address[] memory reserves = new address[](5);
     reserves[0] = AaveV2EthereumAMMAssets.DAI_UNDERLYING;
     reserves[1] = AaveV2EthereumAMMAssets.USDC_UNDERLYING;
     reserves[2] = AaveV2EthereumAMMAssets.USDT_UNDERLYING;
     reserves[3] = AaveV2EthereumAMMAssets.WBTC_UNDERLYING;
     reserves[4] = AaveV2EthereumAMMAssets.WETH_UNDERLYING;
-    for (uint256 i = 0; i < reserves.length; i++) {
-      if (address(aTokens[reserves[i]]) == address(0)) {
-        reserveData = V2_POOL.getReserveData(reserves[i]);
-        aTokens[reserves[i]] = IERC20WithPermit(reserveData.aTokenAddress);
-        vTokens[reserves[i]] = IERC20WithPermit(reserveData.variableDebtTokenAddress);
-        sTokens[reserves[i]] = IERC20WithPermit(reserveData.stableDebtTokenAddress);
 
-        IERC20WithPermit(reserves[i]).safeApprove(address(V2_POOL), type(uint256).max);
-        IERC20WithPermit(reserves[i]).safeApprove(address(V3_POOL), type(uint256).max);
-      }
-    }
+    return reserves;
   }
 }
