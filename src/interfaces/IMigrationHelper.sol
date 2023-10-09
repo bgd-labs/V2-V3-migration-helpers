@@ -99,12 +99,6 @@ interface IMigrationHelper {
     uint256 amount
   ) external view returns (address, uint256);
 
-  /// @notice The source pool
-  function V2_POOL() external returns (IV2Pool);
-
-  /// @notice The destination pool
-  function V3_POOL() external returns (IV3Pool);
-
   /**
    * @notice Public method for rescue funds in case of a wrong transfer
    * @param emergencyInput - array of parameters to transfer out funds
