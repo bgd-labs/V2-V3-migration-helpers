@@ -180,6 +180,8 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         aTokenAmountToMigrate = aTokenBalanceAfterReceiving;
       }
 
+      // On v2 some assets can have a loss of precision on withdrawal (e.g. WBTC), so balance diff should be used
+      // to understand the precise withdrawn amount
       uint256 balanceBefore = IERC20WithPermit(asset).balanceOf(address(this));
       V2_POOL.withdraw(asset, aTokenAmountToMigrate, address(this));
       uint256 withdrawn = IERC20WithPermit(asset).balanceOf(address(this)) - balanceBefore;
