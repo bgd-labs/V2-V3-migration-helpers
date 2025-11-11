@@ -6,7 +6,9 @@ import {console} from 'forge-std/console.sol';
 
 import {AaveV2Polygon} from 'aave-address-book/AaveV2Polygon.sol';
 import {AaveV3Polygon} from 'aave-address-book/AaveV3Polygon.sol';
-
+import {AaveV2Ethereum, AaveV2EthereumAssets} from 'aave-address-book/AaveV2Ethereum.sol';
+import {AaveV2EthereumAMM} from 'aave-address-book/AaveV2EthereumAMM.sol';
+import {AaveV3Ethereum, AaveV3EthereumAssets} from 'aave-address-book/AaveV3Ethereum.sol';
 import {IERC20} from 'solidity-utils/contracts/oz-common/interfaces/IERC20.sol';
 import {ICreditDelegationToken} from '../src/interfaces/ICreditDelegationToken.sol';
 import {IERC20WithATokenCompatibility} from './helpers/IERC20WithATokenCompatibility.sol';
@@ -465,5 +467,38 @@ contract MigrationHelperTest is Test {
     }
 
     return creditDelegations;
+  }
+}
+
+contract MigrationHelperMainnetTest is Test {
+  MigrationHelper public migrationHelper;
+
+  function setUp() public {
+    vm.createSelectFork(vm.rpcUrl('mainnet'), 23643694);
+    migrationHelper = new MigrationHelper(AaveV3Ethereum.POOL, AaveV2Ethereum.POOL);
+  }
+
+  function test_reproduction() external {
+    vm.startPrank(0x7A087e630f7d50544513967B1c68839458C16526);
+
+    IERC20(AaveV2EthereumAssets.WBTC_A_TOKEN).approve(address(migrationHelper), type(uint256).max);
+    IERC20(AaveV2EthereumAssets.DAI_A_TOKEN).approve(address(migrationHelper), type(uint256).max);
+    ICreditDelegationToken(AaveV3EthereumAssets.USDC_V_TOKEN).approveDelegation(
+      address(migrationHelper),
+      type(uint256).max
+    );
+
+    address[] memory assetsToMigrate = new address[](2);
+    assetsToMigrate[0] = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    assetsToMigrate[1] = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    IMigrationHelper.RepaySimpleInput[]
+      memory positionsToRepay = new IMigrationHelper.RepaySimpleInput[](1);
+    positionsToRepay[0] = IMigrationHelper.RepaySimpleInput({
+      asset: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
+      rateMode: 2
+    });
+    IMigrationHelper.PermitInput[] memory permits;
+    IMigrationHelper.CreditDelegationInput[] memory credDel;
+    migrationHelper.migrate(assetsToMigrate, positionsToRepay, permits, credDel);
   }
 }

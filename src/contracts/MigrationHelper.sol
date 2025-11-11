@@ -180,7 +180,9 @@ contract MigrationHelper is Ownable, IMigrationHelper {
         aTokenAmountToMigrate = aTokenBalanceAfterReceiving;
       }
 
-      uint256 withdrawn = V2_POOL.withdraw(asset, aTokenAmountToMigrate, address(this));
+      uint256 balanceBefore = IERC20WithPermit(asset).balanceOf(address(this));
+      V2_POOL.withdraw(asset, aTokenAmountToMigrate, address(this));
+      uint256 withdrawn = IERC20WithPermit(asset).balanceOf(address(this)) - balanceBefore;
 
       // there are cases when we transform asset before supplying it to v3
       (address assetToSupply, uint256 amountToSupply) = _preSupply(asset, withdrawn);
