@@ -478,9 +478,13 @@ contract MigrationHelperMainnetTest is Test {
     migrationHelper = new MigrationHelper(AaveV3Ethereum.POOL, AaveV2Ethereum.POOL);
   }
 
-  function test_reproduction() external {
-    vm.startPrank(0x7A087e630f7d50544513967B1c68839458C16526);
+  function test_diff() external {
+    address user = 0x7A087e630f7d50544513967B1c68839458C16526;
+    vm.startPrank(user);
 
+    uint256 aWBTCBefore = IERC20(AaveV2EthereumAssets.WBTC_A_TOKEN).balanceOf(user);
+    uint256 aDAIBefore = IERC20(AaveV2EthereumAssets.DAI_A_TOKEN).balanceOf(user);
+    uint256 vUSDCBefore = IERC20(AaveV2EthereumAssets.USDC_V_TOKEN).balanceOf(user);
     IERC20(AaveV2EthereumAssets.WBTC_A_TOKEN).approve(address(migrationHelper), type(uint256).max);
     IERC20(AaveV2EthereumAssets.DAI_A_TOKEN).approve(address(migrationHelper), type(uint256).max);
     ICreditDelegationToken(AaveV3EthereumAssets.USDC_V_TOKEN).approveDelegation(
@@ -500,5 +504,15 @@ contract MigrationHelperMainnetTest is Test {
     IMigrationHelper.PermitInput[] memory permits;
     IMigrationHelper.CreditDelegationInput[] memory credDel;
     migrationHelper.migrate(assetsToMigrate, positionsToRepay, permits, credDel);
+
+    uint256 aWBTCAfter = IERC20(AaveV3EthereumAssets.WBTC_A_TOKEN).balanceOf(user);
+    uint256 aDAIAfter = IERC20(AaveV3EthereumAssets.DAI_A_TOKEN).balanceOf(user);
+    uint256 vUSDCAfter = IERC20(AaveV3EthereumAssets.USDC_V_TOKEN).balanceOf(user);
+
+    // some deviation is expected due to different indexes on both protocol versions
+    // additionally on wBTC v2 there is a release margin of 10 wei
+    assertApproxEqAbs(aWBTCBefore, aWBTCAfter, 20);
+    assertApproxEqAbs(aDAIBefore, aDAIAfter, 20);
+    assertApproxEqAbs(vUSDCBefore, vUSDCAfter, 10);
   }
 }
